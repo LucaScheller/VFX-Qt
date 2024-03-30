@@ -1,1 +1,9 @@
-**/__pycache__
+*.pyc
+*.rdb
+__pycache__/
+dependencies
+files
+reference
+trash
+backup
+external/python
