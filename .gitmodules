@@ -1,0 +1,3 @@
+[submodule "external/NodeGraphQt"]
+	path = external/NodeGraphQt
+	url = https://github.com/LucaScheller/NodeGraphQt.git
