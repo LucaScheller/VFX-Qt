@@ -9,48 +9,94 @@ class ToggleButton(QtWidgets.QSlider):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.setStyleSheet(
-            "QSlider::handle { background: black; width: 25px; }"
-        )
+        # Base
+        self.setSingleStep(1)
+        self.setTickInterval(1)
 
         # State
         self._toggle_state = False
         self._toggle_ani_state = 0.0
         self._toggle_ani_prop = QtCore.QPropertyAnimation(self, b"toggleAnimationValue")
         self._toggle_ani_prop.setEasingCurve(QtCore.QEasingCurve.Type.OutBounce)
-
+        # This drives the handle selection area,
+        # disable the paintEvent to see the effect
+        self.stylesheet_template_horizontal = """
+            QSlider::groove:horizontal {
+                border-radius: None;
+                height: 100%;
+                margin: 0px;
+            }
+            QSlider::handle:horizontal {
+                background-color: rgb(85, 170, 255);
+                border: none;
+                width: ||width||px;
+                height: 100%;
+            }
+        """
+        self.stylesheet_template_vertical = """
+            QSlider::groove:vertical {
+                border-radius: None;
+                width: 100%;
+                margin: 0px;
+            }
+            QSlider::handle:vertical {
+                background-color: rgb(85, 170, 255);
+                border: none;
+                width: 100%;
+                height: ||height||px;
+            }
+        """
+        
         # Style
         self.toggle_radius_factor = 0.9
         self.toggle_time = 0.25
         self.toggle_on_color = QtGui.QColor.fromHsvF(0,0,0.95, 1.0)
         self.toggle_off_color = QtGui.QColor.fromHsvF(0,0,0.6, 1.0)
+        self.border_width = 0
         self.border_on_color = QtGui.QColor.fromHsvF(0,0,0.95, 1.0)
         self.border_off_color = QtGui.QColor.fromHsvF(0,0,0.6, 1.0)
         self.background_on_color = QtGui.QColor.fromHsvF(0.3,1,0.85, 1.0)
         self.background_off_color = QtGui.QColor.fromHsvF(0.3,0,0.3, 1.0)
 
-        self.setOrientation(Qt.Horizontal)
-
         # Animation
-        #self.setCheckable(True)
-        #self.clicked.connect(self.onValueChanged)
+        self.toggleValueChanged.connect(self.onToggleAnimationTrigger)
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(event)
+        # Orientation
+        size = event.size()
+        if size.width() > size.height():
+            stylesheet = self.stylesheet_template_horizontal.replace("||width||", str(self.height()))
+            self.setOrientation(Qt.Horizontal)
+        else:
+            stylesheet = self.stylesheet_template_vertical.replace("||height||", str(self.width()))
+            self.setOrientation(Qt.Vertical)
+        # Stylesheet (drives handle selection area)
+        self.setStyleSheet(stylesheet)
 
     def getToggleAnimationValue(self):
+        """Get the toggle animation value.
+        Returns:
+            int: The value.
+        """
         return self._toggle_ani_state
 
     def setToggleAnimationValue(self, value):
+        """Set the toggle animation value.
+        Args:
+            int: The value.
+        """
         self._toggle_ani_state = value
         self.setValue(value)
-        self.update()
+        self.repaint()
 
-    def onValueChanged(self, value):
-        #self._toggle_ani_timer.setInterval()
-        #self._toggle_ani_timer.start()
-        self._toggle_state = True if value > 50.0 else False
-        self._toggle_ani_prop.setStartValue(100-value)
-        self._toggle_ani_prop.setEndValue(value)
+    def onToggleAnimationTrigger(self):
+        """Trigger the toggle animation."""
+        value = self.toggled()
+        self._toggle_ani_prop.setStartValue(self.value())
+        self._toggle_ani_prop.setEndValue(value * 100.0)
         self._toggle_ani_prop.setDuration(self.toggle_time * 1000.0)
-        #self._toggle_ani_prop.start()
+        self._toggle_ani_prop.start()
 
     def toggled(self) -> bool:
         """Get the toggled state.
@@ -69,28 +115,48 @@ class ToggleButton(QtWidgets.QSlider):
             self._toggle_state = value
             self.toggleValueChanged.emit(value)
 
-    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
-        super().mouseReleaseEvent(event)
+    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:
+        # Disable scroll
+        pass
 
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+        """The mouse press event.
+        Args:
+            event(QtGui.QMouseEvent): The event.
+        """
+        super().mousePressEvent(event)
+        self._toggle_ani_prop.stop()
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        """The mouse release event.
+        Args:
+            event(QtGui.QMouseEvent): The event.
+        """
+        # super().mouseReleaseEvent(event)
         rect = self.rect()
-        pos = event.pos()
+        pos = event.localPos()
         if self.orientation() == Qt.Orientation.Horizontal:
             value = pos.x() > (rect.width() * 0.5)
         else:
-            value = pos.x() > (rect.height() * 0.5)
-        self.setToggled(value)
-        print(value)
+            value = pos.y() < (rect.height() * 0.5)
 
+        toggled = self.toggled()
+        if value != toggled:
+            # Handle value changed animation
+            self.setToggled(value)
+        else:
+            # Handle animation back to current value
+            self.onToggleAnimationTrigger()
 
     def paintEvent(self, event):
         """Paint the slider toggle and background.
         Args:
-            event(QtGui.QPaintEvent): The paint event.
+            event(QtGui.QPaintEvent): The event.
         """
-        super().paintEvent(event)
-        return
+        # super().paintEvent(event)
+
         # Value
-        value = self.getToggleAnimationValue() / 100.0
+        value = self.value() / 100.0
 
         # Style
         tgl_on_hsv = self.toggle_on_color.getHsv()
@@ -118,18 +184,22 @@ class ToggleButton(QtWidgets.QSlider):
         )
 
         # Size
+        shrink = 50
         widget_rect = self.rect()
+        roi_rect = widget_rect.adjusted(5,5,-5,-5)
         redraw_rect = event.rect()
         region_rect = event.region().boundingRect()
 
         orientation = self.orientation()
-        length = widget_rect.width()
-        radius = widget_rect.height() * 0.5
+        length = roi_rect.width()
+        radius = roi_rect.height() * 0.5
         slider_line = QtCore.QLineF(radius, radius, length - radius, radius)
         if orientation == Qt.Orientation.Vertical:
-            length = widget_rect.height()
-            radius = widget_rect.width() * 0.5
+            value = 1.0 - value
+            length = roi_rect.height()
+            radius = roi_rect.width() * 0.5
             slider_line = QtCore.QLineF(radius, radius, radius, length - radius)
+        slider_line.translate(roi_rect.topLeft())
         toggle_center = slider_line.pointAt(value)
         toggle_rect = QtCore.QRect(toggle_center.x() - radius,
                                    toggle_center.y() - radius,
@@ -146,14 +216,14 @@ class ToggleButton(QtWidgets.QSlider):
         brush = QtGui.QBrush(bg_color)
         painter.setBrush(brush)
         path = QtGui.QPainterPath()
-        path.addRoundedRect(widget_rect, radius, radius)
+        path.addRoundedRect(roi_rect, radius, radius)
         painter.fillPath(path, brush)
         painter.restore()
                 
         # Background border
         painter.save()
         pen = QtGui.QPen(brd_color)
-        pen.setWidth(3)
+        pen.setWidth(self.border_width)
         painter.setPen(pen)
         painter.drawPath(path);    
         painter.restore()
@@ -183,14 +253,30 @@ class Example(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
-        mySlider = ToggleButton(self)
-        mySlider.setFixedSize(200, 100)
+        center_widget = QtWidgets.QWidget()
+        self.setCentralWidget(center_widget)
 
-        self.setWindowTitle("Checkbox Example")
+        layout = QtWidgets.QVBoxLayout(center_widget)
+        center_widget.setLayout(layout)
+
+        self.toggle_horizontal_button = ToggleButton()
+        self.toggle_horizontal_button.setFixedSize(200, 50)
+        layout.addWidget(self.toggle_horizontal_button)
+
+        self.toggle_vertical_button = ToggleButton()
+        self.toggle_vertical_button.setFixedSize(50, 100)
+        layout.addWidget(self.toggle_vertical_button)
+
+        self.push_button = QtWidgets.QPushButton("Push Me")
+        self.push_button.setCheckable(True)
+        self.push_button.clicked.connect(self.onPushButtonClicked)
+        layout.addWidget(self.push_button)
+
         self.show()
-
-    def changeValue(self, value):
-        print(value)
+        
+    def onPushButtonClicked(self, value):
+        self.toggle_horizontal_button.setToggled(self.push_button.isChecked())
+        self.toggle_vertical_button.setToggled(self.push_button.isChecked())
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
