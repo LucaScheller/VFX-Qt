@@ -12,7 +12,8 @@ class ToggleButtonColorRole:
     toggleOn = 3
     toggleOff = 4
     toggleDisabled = 5
-    border = 6
+    toggleGradient = 6
+    border = 7
 
 class ToggleButton(QtWidgets.QSlider):
     def __init__(self, *args, **kwargs) -> None:
@@ -64,6 +65,7 @@ class ToggleButton(QtWidgets.QSlider):
             ToggleButtonColorRole.toggleOn: QtGui.QColor.fromHsvF(0, 0, 0.95, 1.0),
             ToggleButtonColorRole.toggleOff: QtGui.QColor.fromHsvF(0, 0, 0.6, 1.0),
             ToggleButtonColorRole.toggleDisabled: QtGui.QColor.fromHsvF(0, 0, 0.5, 1.0),
+            ToggleButtonColorRole.toggleGradient: None,
             ToggleButtonColorRole.border: QtGui.QColor.fromHsvF(0, 0, 0.95, 1.0)
         }
         self._toggle_radius_percentage = 0.9
@@ -258,7 +260,6 @@ class ToggleButton(QtWidgets.QSlider):
         value = self.value() / 100.0
 
         # Style
-
         if self.isEnabled():
             tgl_on_hsv = self._colors[ToggleButtonColorRole.toggleOn].getHsv()
             tgl_off_hsv = self._colors[ToggleButtonColorRole.toggleOff].getHsv()
@@ -277,14 +278,15 @@ class ToggleButton(QtWidgets.QSlider):
         else:
             tgl_color = self._colors[ToggleButtonColorRole.toggleDisabled]
             bg_color = self._colors[ToggleButtonColorRole.backgroundDisabled]
+        tgl_gradient = self._colors[ToggleButtonColorRole.toggleGradient]
         brd_color = self._colors[ToggleButtonColorRole.border]
 
         # Size
-        shrink = 50
+        shrink = self._border_width * 0.5
         widget_rect = self.rect()
-        roi_rect = widget_rect.adjusted(5, 5, -5, -5)
-        redraw_rect = event.rect()
-        region_rect = event.region().boundingRect()
+        roi_rect = widget_rect.adjusted(shrink, shrink, -shrink, -shrink)
+        # redraw_rect = event.rect()
+        # region_rect = event.region().boundingRect()
 
         orientation = self.orientation()
         length = roi_rect.width()
@@ -296,9 +298,9 @@ class ToggleButton(QtWidgets.QSlider):
             radius = roi_rect.width() * 0.5
             slider_line = QtCore.QLineF(radius, radius, radius, length - radius)
         slider_line.translate(roi_rect.topLeft())
-        toggle_center = slider_line.pointAt(value)
-        toggle_rect = QtCore.QRect(
-            toggle_center.x() - radius, toggle_center.y() - radius, radius, radius
+        tgl_center = slider_line.pointAt(value)
+        tgl_rect = QtCore.QRect(
+            tgl_center.x() - radius, tgl_center.y() - radius, radius * 2, radius * 2
         )
 
         # Paint start
@@ -330,12 +332,35 @@ class ToggleButton(QtWidgets.QSlider):
         painter.setBrush(brush)
         painter.setPen(Qt.NoPen)
         painter.drawEllipse(
-            toggle_center,
+            tgl_center,
             radius * self._toggle_radius_percentage,
             radius * self._toggle_radius_percentage,
         )
+        if tgl_gradient:
+            if isinstance(tgl_gradient, QtGui.QLinearGradient):
+                tgl_top_center_pt = QtCore.QPoint(tgl_rect.left(), tgl_rect.top())
+                tgl_bottom_center_pt = QtCore.QPoint(tgl_rect.left(), tgl_rect.bottom())
+                tgl_gradient.setStart(tgl_top_center_pt)
+                tgl_gradient.setFinalStop(tgl_bottom_center_pt)
+                brush = QtGui.QBrush(tgl_gradient)
+                painter.setBrush(brush)
+                painter.drawEllipse(
+                    tgl_center,
+                    radius * self._toggle_radius_percentage,
+                    radius * self._toggle_radius_percentage,
+                )
+            elif isinstance(tgl_gradient, QtGui.QRadialGradient):
+                tgl_gradient.setCenter(tgl_center)
+                tgl_gradient.setFocalPoint(tgl_center)
+                tgl_gradient.setRadius(radius)
+                brush = QtGui.QBrush(tgl_gradient)
+                painter.setBrush(brush)
+                painter.drawEllipse(
+                    tgl_center,
+                    radius * self._toggle_radius_percentage,
+                    radius * self._toggle_radius_percentage,
+                )
         painter.restore()
-
         # Paint end
         painter.end()
 
@@ -359,14 +384,26 @@ class Example(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout(center_widget)
         center_widget.setLayout(layout)
 
+        toggle_gradient = QtGui.QRadialGradient(0,0,1)
+        toggle_gradient.setColorAt(0, QtGui.QColor.fromHsvF(0,0,1,0.1))
+        toggle_gradient.setColorAt(0.79, QtGui.QColor.fromHsvF(0,0,0.2,0.05))
+        toggle_gradient.setColorAt(0.8, QtGui.QColor.fromHsvF(0,0,1,0.25))
+        toggle_gradient.setColorAt(1, QtGui.QColor.fromHsvF(0,0,1,0.0))
         self.toggle_horizontal_button = ToggleButton()
         self.toggle_horizontal_button.setFixedSize(200, 50)
+        # self.toggle_horizontal_button.setColor(ToggleButtonColorRole.toggleGradient, toggle_gradient)
         layout.addWidget(self.toggle_horizontal_button)
 
+        toggle_gradient = QtGui.QLinearGradient(0,0, 1,0)
+        toggle_gradient.setColorAt(0, QtGui.QColor.fromHsvF(0,0,1,0.0))
+        toggle_gradient.setColorAt(0.3, QtGui.QColor.fromHsvF(0,0,1,.25))
+        toggle_gradient.setColorAt(0.35, QtGui.QColor.fromHsvF(0,0,.2,.05))
+        toggle_gradient.setColorAt(1, QtGui.QColor.fromHsvF(0,0,0,0.0))
         self.toggle_vertical_button = ToggleButton()
         self.toggle_vertical_button.setFixedSize(50, 100)
-        self.toggle_vertical_button.setBorderWidth(5)
-        self.toggle_vertical_button.setColor(ToggleButtonColorRole.border, Qt.black)
+        self.toggle_vertical_button.setColor(ToggleButtonColorRole.toggleGradient, toggle_gradient)
+        self.toggle_vertical_button.setBorderWidth(4)
+        self.toggle_vertical_button.setColor(ToggleButtonColorRole.border, QtGui.QColor.fromHsvF(0,0,.2))
         layout.addWidget(self.toggle_vertical_button)
 
         self.toggle_disabled_button = ToggleButton()

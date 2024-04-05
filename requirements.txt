@@ -1,7 +1,4 @@
-ascii_canvas
-async_timeout
-# flowpipe -> Loaded from /external
 # NodeGraphQt -> Loaded from /external
 PySide2
 Qt.py
-redis
+mypy

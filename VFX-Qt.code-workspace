@@ -8,9 +8,10 @@
 		"files.exclude": {
 			"**/__pycache__": true
 		},
-		"python.analysis.extraPaths": ["/mnt/data/PROJECT/VFX-Pipeline/VFX-Qt/external/python/lib/python3.9/site-packages",
-									   "/opt/hfs20.0/houdini/python3.10libs",
-								       "/mnt/data/PROJECT/VFX-DCC/VFX-Houdini/package/scripts/python"]
+		"python.analysis.extraPaths": [
+			"/mnt/data/PROJECT/VFX-Pipeline/VFX-Qt/external/python/lib/python3.9/site-packages",
+			"/opt/hfs20.0/houdini/python3.10libs",
+			"/mnt/data/PROJECT/VFX-DCC/VFX-Houdini/package/scripts/python"
+		]
 	}
-	
 }

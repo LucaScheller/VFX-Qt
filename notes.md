@@ -11,3 +11,5 @@ $REPO_ROOT/external/python/bin/activate
 ### Pip Installs
 > source $REPO_ROOT/external/python/bin/activate
 > pip install -r requirements.txt 
+### Stubs ###
+stubgen -o external/python/stubs
