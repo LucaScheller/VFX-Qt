@@ -6,6 +6,7 @@ from Qt.QtCore import Qt
 from vfxQt.widgets import ToggleButton, ToggleButtonColorRole
 from vfxQt.style import get_palette
 
+
 class ExampleToggleButton(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
