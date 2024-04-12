@@ -1,7 +1,8 @@
 import sys
-from Qt import QtWidgets, QtGui, QtCore
-from Qt.QtCore import Qt
 from typing import Any, Dict, List
+
+from Qt import QtCore, QtGui, QtWidgets
+from Qt.QtCore import Qt
 
 
 class ImageItemDelegate(QtWidgets.QStyledItemDelegate):
@@ -109,6 +110,7 @@ class Model(QtCore.QAbstractItemModel):
     ####################
     # Hierarchy Edit
     ####################
+
     def sort(self, column: int, order: Qt.SortOrder = ...) -> None:
         return super().sort(column, order)
 
@@ -252,7 +254,7 @@ class ExampleListView(QtWidgets.QMainWindow):
         list_view = QtWidgets.QListView(self)
         list_view.setMouseTracking(True)
         list_view.setViewMode(QtWidgets.QListView.IconMode)
-        list_view.setItemDelegate(item_delegate)
+        # list_view.setItemDelegate(item_delegate)
         layout.addWidget(list_view)
 
         entries = ["one", "two", "three"]
