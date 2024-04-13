@@ -7,6 +7,7 @@ from vfxQt.style import get_palette
 from vfxQt.views import (
     ComboBoxItemDelegate,
     ComboBoxItemDelegateSourceMode,
+    HtmlItemDelegate,
     RowTableView,
 )
 from vfxQt.widgets import ToggleButton, ToggleButtonColorRole
@@ -156,10 +157,68 @@ class ExampleComboBoxItemDelegate(QtWidgets.QMainWindow):
         self.show()
 
 
+class ExampleHtmlItemDelegate(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        center_widget = QtWidgets.QWidget()
+        self.setCentralWidget(center_widget)
+
+        layout = QtWidgets.QVBoxLayout(center_widget)
+        center_widget.setLayout(layout)
+        layout.addWidget(QtWidgets.QPushButton("Test 123"))
+
+        # Html Delegate
+        list_view = QtWidgets.QListView(self)
+        list_view.setMouseTracking(True)
+        list_view.setViewMode(QtWidgets.QListView.IconMode)
+        layout.addWidget(list_view)
+
+        html_item_delegate = HtmlItemDelegate(list_view)
+        html_item_delegate.setItemValueRole(Qt.UserRole)
+        list_view.setItemDelegate(html_item_delegate)
+
+        html = """
+        <html>
+            <body>
+                <h3>HTML Example Heading</h3>
+                <p>HTML Example Paragraph A</p>
+                <p>HTML Example Paragraph B</p>
+            </body>
+        </html>
+        """
+
+        html = """
+        <div width=100%, height=100%>
+            <p style="color:blue">HTML Example Paragraph A</p>
+            <p>HTML Example Paragraph B</p>
+        </div>
+        """
+
+        model = QtGui.QStandardItemModel()
+        list_view.setModel(model)
+        for i in range(10):
+            item = QtGui.QStandardItem(i)
+            item.setData("", Qt.DisplayRole)
+            item.setData(html, Qt.UserRole)
+            item.setSizeHint(QtCore.QSize(100, 100))
+            item.setEditable(False)
+            item.setBackground(Qt.green)
+            model.appendRow(item)
+
+        # Show
+        self.resize(800, 400)
+        self.show()
+
+
 if __name__ == "__main__":
     palette = get_palette()
     app = QtWidgets.QApplication(sys.argv)
     app.setPalette(palette)
+    example = None
     # example = ExampleToggleButton()
     # example = ExampleComboBoxItemDelegate()
+    example = ExampleHtmlItemDelegate()
+    if not example:
+        raise Exception("No example selected!")
     sys.exit(app.exec_())

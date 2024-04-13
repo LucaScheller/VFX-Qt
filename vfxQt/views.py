@@ -13,6 +13,31 @@ from vfxQt.style import get_palette
 
 
 class StyledItemDelegate(QtWidgets.QStyledItemDelegate):
+    def paint(
+        self,
+        painter: QtGui.QPainter,
+        option: QtWidgets.QStyleOptionViewItem,
+        index: QtCore.QModelIndex,
+    ) -> None:
+        """Boilerplate paint code.
+        Args:
+            painter (QtGui.QPainter): The painter.
+            option (QtWidgets.QStyleOptionViewItem): The style option.
+            index (QtCore.QModelIndex): The model index.
+        """
+
+        """ Base code to add custom paint code to.
+        painter.save()
+        style_option = QtWidgets.QStyleOptionViewItem(option)
+        self.initStyleOption(style_option, index)
+        style = option.widget.style()
+        style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, style_option, painter)
+        painter.restore()
+        """
+        super().paint(painter, option, index)
+
+
+class MultiEditItemDelegate(StyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._multi_row_edit = False
@@ -42,10 +67,10 @@ class StyledItemDelegate(QtWidgets.QStyledItemDelegate):
         for row in sorted(rows):
             for column in sorted(columns):
                 multi_index = model.index(row, column)
-                if self.validateEditData(multi_index, value, role):
-                    self.setEditData(multi_index, value, role)
+                if self.validateData(multi_index, value, role):
+                    self.setData(multi_index, value, role)
 
-    def validateEditData(self, index: QtCore.QModelIndex, value: Any, role: int):
+    def validateData(self, index: QtCore.QModelIndex, value: Any, role: int):
         """Validate the given value before writing it.
         Args:
             index (QtCore.QModelIndex): The model index.
@@ -56,7 +81,7 @@ class StyledItemDelegate(QtWidgets.QStyledItemDelegate):
         """
         return True
 
-    def setEditData(self, index: QtCore.QModelIndex, value: Any, role: int):
+    def setData(self, index: QtCore.QModelIndex, value: Any, role: int):
         """Apply the edit to the model.
         This method allows us to override how the data gets
         injected back into the model.
@@ -114,7 +139,7 @@ class ComboBoxItemDelegateSourceMode(Enum):
     func = "func"
 
 
-class ComboBoxItemDelegate(StyledItemDelegate):
+class ComboBoxItemDelegate(MultiEditItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -128,7 +153,7 @@ class ComboBoxItemDelegate(StyledItemDelegate):
         self._editor = None
         self._index = None
 
-    def validateEditData(self, index: QtCore.QModelIndex, value: Any, role: int):
+    def validateData(self, index: QtCore.QModelIndex, value: Any, role: int):
         """Validate the given value before writing it.
         Args:
             index (QtCore.QModelIndex): The model index.
@@ -142,7 +167,7 @@ class ComboBoxItemDelegate(StyledItemDelegate):
             return value in items
         return True
 
-    def setEditData(self, index: QtCore.QModelIndex, value: Any, role: int):
+    def setData(self, index: QtCore.QModelIndex, value: Any, role: int):
         """Apply the edit to the model.
         Args:
             index (QtCore.QModelIndex): The model index.
@@ -150,15 +175,13 @@ class ComboBoxItemDelegate(StyledItemDelegate):
             role (Any): The role.
         """
         if role == self._item_value_role:
-            super().setEditData(index, value, role)
+            super().setData(index, value, role)
             # This propagates the label of the current item to the multi edit item.
             # As a condition of how this widget works, we expect each index to
             # have the same label for each value. Indices can still have varying
-            # items, only the label must match the value.
+            # items, only the label must match the value per item.
             if role != Qt.DisplayRole:
-                super().setEditData(
-                    index, self._items_value_label[value], Qt.DisplayRole
-                )
+                super().setData(index, self._items_value_label[value], Qt.DisplayRole)
 
     def getItemValueRole(self):
         """Get the item value role.
@@ -312,6 +335,8 @@ class ComboBoxItemDelegate(StyledItemDelegate):
             option (QtWidgets.QStyleOptionViewItem): The style option.
             index (QtCore.QModelIndex): The model index.
         """
+        painter.save()
+
         text = index.data(Qt.DisplayRole)
 
         cb_style_option = QtWidgets.QStyleOptionComboBox()
@@ -321,6 +346,74 @@ class ComboBoxItemDelegate(StyledItemDelegate):
         style = option.widget.style()
         style.drawComplexControl(QtWidgets.QStyle.CC_ComboBox, cb_style_option, painter)
         style.drawControl(QtWidgets.QStyle.CE_ComboBoxLabel, cb_style_option, painter)
+
+        painter.restore()
+
+
+class HtmlItemDelegate(MultiEditItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self._html_doc = QtGui.QTextDocument(parent=self)
+        self._html_doc.setDocumentMargin(0)
+        self._html_doc_options = QtGui.QTextOption()
+        self._html_doc_options.setWrapMode(
+            self._html_doc_options.WrapAtWordBoundaryOrAnywhere
+        )
+        self._html_doc.setDefaultTextOption(self._html_doc_options)
+
+        self._item_value_role = Qt.DisplayRole
+
+    def getItemValueRole(self):
+        """Get the item value role.
+        Args:
+            int: The role.
+        """
+        return self._item_value_role
+
+    def setItemValueRole(self, role: int):
+        """Set the item value role.
+        Args:
+            role (int): The role.
+        """
+        self._item_value_role = role
+
+    def paint(
+        self,
+        painter: QtGui.QPainter,
+        option: QtWidgets.QStyleOptionViewItem,
+        index: QtCore.QModelIndex,
+    ) -> None:
+        """Boilerplate paint code.
+        Args:
+            painter (QtGui.QPainter): The painter.
+            option (QtWidgets.QStyleOptionViewItem): The style option.
+            index (QtCore.QModelIndex): The model index.
+        """
+
+        painter.save()
+        # style_option = QtWidgets.QStyleOptionViewItem(option)
+        # self.initStyleOption(style_option, index)
+        # style_option.text = ""
+        # style = option.widget.style()
+        # style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, style_option, painter)
+
+        rect = option.rect
+        html = index.data(self._item_value_role)
+
+        painter.translate(rect.topLeft())
+        clip_rect = QtCore.QRectF(0.0, 0.0, float(rect.width()), float(rect.height()))
+        self._html_doc.setHtml(html)
+        self._html_doc.setTextWidth(rect.width())
+        self._html_doc.setPageSize(rect.size())
+        self._html_doc.drawContents(painter, clip_rect)
+
+        painter.restore()
+
+
+##############################
+# Views
+##############################
 
 
 class RowTableView(QtWidgets.QTableView):
