@@ -276,7 +276,7 @@ class ToggleButton(QtWidgets.QSlider):
         # super().paintEvent(event)
 
         # Value
-        value = self.value() / 100.0
+        value = self.value() / 99.0
 
         # Style
         if self.isEnabled():
@@ -306,7 +306,6 @@ class ToggleButton(QtWidgets.QSlider):
         roi_rect = widget_rect.adjusted(shrink, shrink, -shrink, -shrink)
         # redraw_rect = event.rect()
         # region_rect = event.region().boundingRect()
-
         orientation = self.orientation()
         length = roi_rect.width()
         radius = roi_rect.height() * 0.5
