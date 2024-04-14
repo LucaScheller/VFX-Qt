@@ -18,3 +18,6 @@ def get_palette():
     palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(42, 130, 218))
     palette.setColor(QtGui.QPalette.HighlightedText, Qt.black)
     return palette
+
+def get_frames_per_second():
+    return 1.0 / 24.0

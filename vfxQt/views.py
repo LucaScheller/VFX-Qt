@@ -2,7 +2,7 @@ import sys
 from enum import Enum
 from typing import Any, Dict, List
 
-from Qt import QtCore, QtGui, QtWidgets
+from Qt import QtCore, QtGui, QtWidgets, QtSvg
 from Qt.QtCore import Qt
 
 from vfxQt.style import get_palette
@@ -384,12 +384,88 @@ class HtmlItemDelegate(MultiEditItemDelegate):
         option: QtWidgets.QStyleOptionViewItem,
         index: QtCore.QModelIndex,
     ) -> None:
-        """Boilerplate paint code.
+        """Paint the item.
         Args:
             painter (QtGui.QPainter): The painter.
             option (QtWidgets.QStyleOptionViewItem): The style option.
             index (QtCore.QModelIndex): The model index.
         """
+
+        painter.save()
+        # style_option = QtWidgets.QStyleOptionViewItem(option)
+        # self.initStyleOption(style_option, index)
+        # style_option.text = ""
+        # style = option.widget.style()
+        # style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, style_option, painter)
+
+        rect = option.rect
+        html = index.data(self._item_value_role)
+
+        painter.translate(rect.topLeft())
+        clip_rect = QtCore.QRectF(0.0, 0.0, float(rect.width()), float(rect.height()))
+        self._html_doc.setHtml(html)
+        self._html_doc.setTextWidth(rect.width())
+        self._html_doc.setPageSize(rect.size())
+        self._html_doc.drawContents(painter, clip_rect)
+
+        painter.restore()
+
+
+class ImageItemDelegate(MultiEditItemDelegate):
+    repaintNeeded = QtCore.Signal(name="repaintNeeded")
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def getImageCache(self):
+        return self._image_cache
+
+    def setImageCache(self, cache):
+        self._image_cache = cache
+
+    def paint(
+        self,
+        painter: QtGui.QPainter,
+        option: QtWidgets.QStyleOptionViewItem,
+        index: QtCore.QModelIndex,
+    ) -> None:
+        """Paint the item
+        Args:
+            painter (QtGui.QPainter): The painter.
+            option (QtWidgets.QStyleOptionViewItem): The style option.
+            index (QtCore.QModelIndex): The model index.
+        """
+        # super().paint(painter, option, index)
+        if not self._image_cache:
+            print(
+                "No image cached specified, ignoring {} paint method.".format(
+                    self.__class__.__name__
+                )
+            )
+            return
+
+        rect = option.rect
+
+        display_time_out = index.data(Qt.UserRole)
+        image_resource_name = index.data(Qt.UserRole + 1)
+        image_resource = self._image_cache.getResource(image_resource_name, track=False)
+        if image_resource:
+            if isinstance(image_resource, QtSvg.QSvgRenderer):
+                if display_time_out > 0:
+                    painter.save()
+                    painter.translate(rect.topLeft())
+                    image_resource.setViewBox(option.rect)
+                    image_resource.render(painter, option.rect)
+                    painter.restore()
+                    self.repaintNeeded.emit()
+            elif isinstance(image_resource, QtGui.QPixmap):
+                painter.save()
+                painter.setRenderHint(QtGui.QPainter.Antialiasing)
+                painter.drawPixmap(rect, image_resource)
+                painter.restore()
+
+        return
+        image = ""
 
         painter.save()
         # style_option = QtWidgets.QStyleOptionViewItem(option)
@@ -426,13 +502,3 @@ class RowTableView(QtWidgets.QTableView):
 
         # Edit
         self.setEditTriggers(self.AllEditTriggers)
-
-
-
-if __name__ == "__main__":
-    palette = get_palette()
-    app = QtWidgets.QApplication(sys.argv)
-    app.setPalette(palette)
-    example = ExampleListView()
-
-    sys.exit(app.exec_())

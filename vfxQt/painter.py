@@ -13,9 +13,7 @@ class ImageItemDelegate(QtWidgets.QStyledItemDelegate):
         index: QtCore.QModelIndex,
     ) -> None:
         # super().paint(painter, option, index)
-
-        print("here")
-        print(option)
+        pass
 
 
 class Model(QtCore.QAbstractItemModel):

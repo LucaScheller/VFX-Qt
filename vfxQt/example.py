@@ -1,13 +1,16 @@
+import os
 import sys
 
-from Qt import QtGui, QtCore, QtWidgets
+from Qt import QtCore, QtGui, QtWidgets
 from Qt.QtCore import Qt
 
+from vfxQt.media import getImageCache
 from vfxQt.style import get_palette
 from vfxQt.views import (
     ComboBoxItemDelegate,
     ComboBoxItemDelegateSourceMode,
     HtmlItemDelegate,
+    ImageItemDelegate,
     RowTableView,
 )
 from vfxQt.widgets import ToggleButton, ToggleButtonColorRole
@@ -166,7 +169,6 @@ class ExampleHtmlItemDelegate(QtWidgets.QMainWindow):
 
         layout = QtWidgets.QVBoxLayout(center_widget)
         center_widget.setLayout(layout)
-        layout.addWidget(QtWidgets.QPushButton("Test 123"))
 
         # Html Delegate
         list_view = QtWidgets.QListView(self)
@@ -211,14 +213,73 @@ class ExampleHtmlItemDelegate(QtWidgets.QMainWindow):
         self.show()
 
 
+class ExampleImageItemDelegate(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        center_widget = QtWidgets.QWidget()
+        self.setCentralWidget(center_widget)
+
+        layout = QtWidgets.QVBoxLayout(center_widget)
+        center_widget.setLayout(layout)
+
+        # Cache
+        media_dir_path = os.path.join(
+            os.path.dirname(os.path.os.path.dirname(__file__)), "media"
+        )
+        image_cache = getImageCache()
+        image_cache.addSearchPath(media_dir_path)
+
+        # Image Delegate
+        list_view = QtWidgets.QListView(self)
+        list_view.setMouseTracking(True)
+        list_view.setViewMode(QtWidgets.QListView.IconMode)
+        layout.addWidget(list_view)
+
+        image_item_delegate = ImageItemDelegate(list_view)
+        image_item_delegate.setImageCache(image_cache)
+        image_item_delegate.repaintNeeded.connect(self.queueUpdate)
+        list_view.setItemDelegate(image_item_delegate)
+
+        import random
+
+        image_resource_name = "loading_dual_ring.svg"
+        image_resource_name = "loading_gear_0.png"
+
+        model = QtGui.QStandardItemModel()
+        list_view.setModel(model)
+        for i in range(1000):
+            item = QtGui.QStandardItem()
+            item.setData(random.randrange(1, 10), Qt.UserRole)
+            item.setData(image_resource_name, Qt.UserRole + 1)
+            item.setSizeHint(QtCore.QSize(100, 100))
+            item.setSelectable(False)
+            model.appendRow(item)
+
+        self.list_model = model
+        self.list_view = list_view
+
+        # Show
+        self.resize(800, 400)
+        self.show()
+
+    def queueUpdate(self):
+        for row in range(self.list_model.rowCount()):
+            index = self.list_model.index(row, 0)
+            value = index.data(Qt.UserRole)
+            self.list_model.setData(index, value - 0.0005, Qt.UserRole)
+            self.list_view.update(index)
+
+
 if __name__ == "__main__":
     palette = get_palette()
     app = QtWidgets.QApplication(sys.argv)
-    app.setPalette(palette)
+    # app.setPalette(palette)
     example = None
     # example = ExampleToggleButton()
     # example = ExampleComboBoxItemDelegate()
-    example = ExampleHtmlItemDelegate()
+    # example = ExampleHtmlItemDelegate()
+    example = ExampleImageItemDelegate()
     if not example:
         raise Exception("No example selected!")
     sys.exit(app.exec_())
