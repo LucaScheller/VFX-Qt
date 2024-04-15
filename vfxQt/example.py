@@ -13,7 +13,7 @@ from vfxQt.views import (
     ImageItemDelegate,
     RowTableView,
 )
-from vfxQt.widgets import FoldArea, ToggleButton, ToggleButtonColorRole
+from vfxQt.widgets import FoldArea, FoldSection, ToggleButton, ToggleButtonColorRole
 
 
 class ExampleToggleButton(QtWidgets.QMainWindow):
@@ -77,7 +77,7 @@ class ExampleToggleButton(QtWidgets.QMainWindow):
 
 
 
-class ExampleFoldArea(QtWidgets.QMainWindow):
+class ExampleFoldAreaAndSection(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -91,17 +91,35 @@ class ExampleFoldArea(QtWidgets.QMainWindow):
         toggle_button = ToggleButton(self)
         toggle_button.toggleValueChanged.connect(self.onToggleValueChanged)
         toggle_button.setBackgroundRadiusPercentage(0.5)
-        toggle_button.setFixedSize(50, 25)
+        toggle_button.setFixedSize(75, 25)
         layout.addWidget(toggle_button)
 
         self.fold_area = FoldArea(self)
         self.fold_area.setToggleAnimationEasingCurve(QtCore.QEasingCurve.Type.OutBounce)
         self.fold_area.setToggleAnimationTime(500)
-
         fold_layout = self.fold_area.layout()
-        fold_layout.addWidget(QtWidgets.QLabel("Some Text in Section"))
-        fold_layout.addWidget(QtWidgets.QPushButton("Button in Section"))
+        fold_layout.addWidget(QtWidgets.QLabel("Example Text"))
+        fold_layout.addWidget(QtWidgets.QPushButton("Example Button A"))
+        fold_layout.addWidget(QtWidgets.QPushButton("Example Button B"))
         layout.addWidget(self.fold_area)
+
+        fold_section = FoldSection(self)
+        fold_section.getFoldAreaLayout().addWidget(
+            QtWidgets.QPushButton("Example Button A")
+        )
+        layout.addWidget(fold_section)
+
+        custom_toggle_button = ToggleButton()
+        custom_toggle_button.setFixedSize(40, 15)
+        fold_section = FoldSection(self)
+        fold_section.setCustomToggleButton(
+            custom_toggle_button, "toggleValueChanged", "toggled"
+        )
+        fold_section.getFoldAreaLayout().addWidget(
+            QtWidgets.QPushButton("Example Button A")
+        )
+        # fold_section.clearCustomToggleButton()
+        layout.addWidget(fold_section)
 
         self.show()
 
@@ -309,7 +327,7 @@ if __name__ == "__main__":
     app.setPalette(palette)
     example = None
     # example = ExampleToggleButton()
-    example = ExampleFoldArea()
+    example = ExampleFoldAreaAndSection()
     # example = ExampleComboBoxItemDelegate()
     # example = ExampleHtmlItemDelegate()
     # example = ExampleImageItemDelegate()

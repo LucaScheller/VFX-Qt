@@ -187,9 +187,8 @@ class ToggleButton(QtWidgets.QSlider):
         self.setValue(value)
         self.update()
 
-    def onToggleAnimationTrigger(self):
+    def onToggleAnimationTrigger(self, value):
         """Trigger the toggle animation."""
-        value = self.toggled()
         self._toggle_ani_prop.setStartValue(self.value())
         self._toggle_ani_prop.setEndValue(value * 100.0)
         self._toggle_ani_prop.setDuration(self._toggle_time)
@@ -204,6 +203,7 @@ class ToggleButton(QtWidgets.QSlider):
 
     def setToggled(self, value: bool):
         """Set the toggled state.
+        We also emit a
         Args:
             value (bool): The value.
         """
@@ -266,7 +266,7 @@ class ToggleButton(QtWidgets.QSlider):
             self.setToggled(value)
         else:
             # Handle animation back to current value
-            self.onToggleAnimationTrigger()
+            self.onToggleAnimationTrigger(value)
 
     def keyReleaseEvent(self, event: QtGui.QKeyEvent):
         """The keyboard release event.
@@ -413,6 +413,7 @@ class FoldArea(QtWidgets.QScrollArea):
         # Layout (This can be user overriden)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setAlignment(Qt.AlignTop)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         # Style
@@ -462,10 +463,9 @@ class FoldArea(QtWidgets.QScrollArea):
         """
         self._toggle_ani_easing_curve = value
 
-    def onToggleAnimationTrigger(self):
+    def onToggleAnimationTrigger(self, value):
         """Trigger the toggle animation."""
-        content_height = self.minimumSizeHint().height()
-        value = self.toggled()
+        content_height = self.layout().sizeHint().height()
         ani_value_start = 0 if value else content_height
         ani_value_end = content_height if value else 0
         self._toggle_ani_prop.setStartValue(ani_value_start)
@@ -473,6 +473,160 @@ class FoldArea(QtWidgets.QScrollArea):
         self._toggle_ani_prop.setDuration(self._toggle_time)
         self._toggle_ani_prop.setEasingCurve(self._toggle_ani_easing_curve)
         self._toggle_ani_prop.start()
+
+    def toggled(self) -> bool:
+        """Get the toggled state.
+        Returns:
+            bool: The toggle state.
+        """
+        return bool(self._toggle_state)
+
+    def setToggled(self, value: bool):
+        """Set the toggled state.
+        Args:
+            value (bool): The value.
+        """
+        value = True if value >= 0.5 else False
+        if value != self._toggle_state:
+            self._toggle_state = value
+            self.toggleValueChanged.emit(value)
+
+    # Signals
+    toggleValueChanged = QtCore.Signal(bool)
+
+
+class FoldSection(QtWidgets.QWidget):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        layout = QtWidgets.QGridLayout(self)
+        layout.setAlignment(Qt.AlignTop)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+
+        self._section_toggle_button = QtWidgets.QToolButton(self)
+        self._section_toggle_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self._section_toggle_button.setAutoRaise(True)
+        self._section_toggle_button.setArrowType(Qt.RightArrow)
+        self._section_toggle_button.setCheckable(True)
+        self._section_toggle_button.setStyleSheet("QToolButton {border: none;}")
+        layout.addWidget(self._section_toggle_button, 0, 0, 1, 1, Qt.AlignLeft)
+
+        self._section_line = QtWidgets.QFrame(self)
+        self._section_line.setFrameShape(QtWidgets.QFrame.HLine)
+        self._section_line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self._section_line.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Maximum
+        )
+        layout.addWidget(self._section_line, 0, 1, 1, 1)
+
+        self._content_area = FoldArea(self)
+        self._content_area.setToggled(False)
+        layout.addWidget(self._content_area, 1, 0, 1, 3)
+
+        # State
+        self._section_custom_toggle_button = None
+        self._section_custom_toggle_button_toggle_signal_name = None
+        self._section_custom_toggle_button_toggle_state_method_name = None
+        self._toggle_state = False
+
+        # Animation
+        self._section_toggle_button.clicked.connect(self.onToggled)
+        self.toggleValueChanged.connect(self.onToggleAnimationTrigger)
+
+    def getFoldArea(self):
+        """Get the fold area.
+        Returns:
+            FoldArea: The fold area.
+        """
+        return self._content_area
+
+    def getFoldAreaLayout(self):
+        """Get the fold area layout.
+        Returns:
+            QtWidgets.QLayout: The layout.
+        """
+        return self._content_area.layout()
+
+    def getCustomToggleButton(self):
+        """Get the custom toggle button (if set).
+        Returns:
+            QtWidgets.QWidget: The widget (or None).
+        """
+        return self._section_custom_toggle_button
+
+    def setCustomToggleButton(
+        self,
+        widget: QtWidgets.QWidget,
+        toggle_signal_name: str,
+        toggle_checked_state_method_name: str,
+    ):
+        """Set a the custom toggle button.
+        Args:
+            widget (QtWidgets.QWidget): The widget.
+            toggle_signal_name (str): The signal name that changes on check state change.
+            toggle_checked_state_method_name (str): The method to query the check state from.
+        """
+        # Disable native button
+        self._section_toggle_button.clicked.disconnect(self.onToggled)
+        self._section_toggle_button.hide()
+
+        # Store state
+        self._section_custom_toggle_button = widget
+        self._section_custom_toggle_button_toggle_signal_name = toggle_signal_name
+        self._section_custom_toggle_button_toggle_state_method_name = (
+            toggle_checked_state_method_name
+        )
+
+        # Add
+        self._section_custom_toggle_button.setParent(self)
+        getattr(
+            self._section_custom_toggle_button,
+            self._section_custom_toggle_button_toggle_signal_name,
+        ).connect(self.onToggled)
+        self.layout().addWidget(
+            self._section_custom_toggle_button, 0, 0, 1, 1, Qt.AlignLeft
+        )
+
+    def clearCustomToggleButton(self):
+        """Remove the custom toggle button."""
+        if self._section_custom_toggle_button is None:
+            return
+        # Remove
+        self.layout().addWidget(self._section_toggle_button, 0, 0, 1, 1, Qt.AlignLeft)
+        getattr(
+            self._section_custom_toggle_button,
+            self._section_custom_toggle_button_toggle_signal_name,
+        ).disconnect(self.onToggled)
+        self._section_custom_toggle_button.setParent(None)
+        del self._section_custom_toggle_button
+
+        # Clear state
+        self._section_custom_toggle_button = None
+        self._section_custom_toggle_button_toggle_signal_name = None
+        self._section_custom_toggle_button_toggle_state_method_name = None
+
+        # Enable native button
+        self._section_toggle_button.setChecked(self._toggle_state)
+        self._section_toggle_button.clicked.connect(self.onToggled)
+        self._section_toggle_button.show()
+
+    def onToggled(self):
+        if self._section_custom_toggle_button is None:
+            value = self._section_toggle_button.isChecked()
+        else:
+            value = getattr(
+                self._section_custom_toggle_button,
+                self._section_custom_toggle_button_toggle_state_method_name,
+            )()
+        self.setToggled(value)
+
+    def onToggleAnimationTrigger(self, value):
+        """Trigger the toggle animation."""
+        self._section_toggle_button.setArrowType(
+            Qt.DownArrow if value else Qt.RightArrow
+        )
+        self._content_area.setToggled(value)
 
     def toggled(self) -> bool:
         """Get the toggled state.
