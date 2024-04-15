@@ -412,7 +412,7 @@ class HtmlItemDelegate(MultiEditItemDelegate):
 
 
 class ImageItemDelegate(MultiEditItemDelegate):
-    repaintNeeded = QtCore.Signal(name="repaintNeeded")
+    repaintNeeded = QtCore.Signal(QtCore.QModelIndex, name="repaintNeeded")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -457,7 +457,7 @@ class ImageItemDelegate(MultiEditItemDelegate):
                     image_resource.setViewBox(option.rect)
                     image_resource.render(painter, option.rect)
                     painter.restore()
-                    self.repaintNeeded.emit()
+                    self.repaintNeeded.emit(index)
             elif isinstance(image_resource, QtGui.QPixmap):
                 painter.save()
                 painter.setRenderHint(QtGui.QPainter.Antialiasing)

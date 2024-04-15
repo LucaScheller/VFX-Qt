@@ -1,4 +1,4 @@
-from Qt import QtWidgets, QtGui, QtCore
+from Qt import QtCore, QtGui, QtWidgets
 from Qt.QtCore import Qt
 
 from vfxQt.utils import blend
@@ -75,7 +75,7 @@ class ToggleButton(QtWidgets.QSlider):
             ToggleButtonColorRole.border: QtGui.QColor.fromHsvF(0, 0, 0.95, 1.0),
         }
         self._toggle_radius_percentage = 0.9
-        self._toggle_time = 0.25
+        self._toggle_time = 0.25 * 1000.0
         self._background_radius_percentage = 1.0
         self._border_width = 0
 
@@ -109,14 +109,14 @@ class ToggleButton(QtWidgets.QSlider):
     def toggleAnimationTime(self) -> float:
         """Get the toggle animation blend time.
         Returns:
-            float: The time in seconds.
+            float: The time in milliseconds.
         """
         return self._toggle_time
 
     def setToggleAnimationTime(self, value: float):
         """Set the toggled animation blend time.
         Args:
-            value (float): The time in seconds.
+            value (float): The time in milliseconds.
         """
         self._toggle_time = value
 
@@ -185,14 +185,14 @@ class ToggleButton(QtWidgets.QSlider):
         """
         self._toggle_ani_state = value
         self.setValue(value)
-        self.repaint()
+        self.update()
 
     def onToggleAnimationTrigger(self):
         """Trigger the toggle animation."""
         value = self.toggled()
         self._toggle_ani_prop.setStartValue(self.value())
         self._toggle_ani_prop.setEndValue(value * 100.0)
-        self._toggle_ani_prop.setDuration(self._toggle_time * 1000.0)
+        self._toggle_ani_prop.setDuration(self._toggle_time)
         self._toggle_ani_prop.start()
 
     def toggled(self) -> bool:
@@ -267,6 +267,14 @@ class ToggleButton(QtWidgets.QSlider):
         else:
             # Handle animation back to current value
             self.onToggleAnimationTrigger()
+
+    def keyReleaseEvent(self, event: QtGui.QKeyEvent):
+        """The keyboard release event.
+        Args:
+            event(QtGui.QKeyEvent): The event.
+        """
+        # We interpret any key event as a toggle.
+        self.setToggled(1 - self.toggled())
 
     def paintEvent(self, event):
         """Paint the slider toggle and background.
@@ -396,3 +404,96 @@ class ToggleButton(QtWidgets.QSlider):
     toggleAnimationValue = QtCore.Property(
         float, getToggleAnimationValue, setToggleAnimationValue
     )
+
+
+class FoldArea(QtWidgets.QScrollArea):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        # Layout (This can be user overriden)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignTop)
+        self.setLayout(layout)
+
+        # Style
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.setMaximumHeight(0)
+        self.setMinimumHeight(0)
+        self.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.setStyleSheet("QScrollArea {background: hsv(0,0,60);}")
+
+        # State
+        self._toggle_state = False
+        self._toggle_ani_state = 0.0
+        self._toggle_ani_prop = QtCore.QPropertyAnimation(self, b"maximumHeight")
+        self._toggle_time = 0.25 * 1000.0
+        self._toggle_ani_easing_curve = QtCore.QEasingCurve.Type.Linear
+
+        # Animation
+        self.toggleValueChanged.connect(self.onToggleAnimationTrigger)
+
+    def toggleAnimationTime(self) -> float:
+        """Get the toggle animation blend time.
+        Returns:
+            float: The time in milliseconds.
+        """
+        return self._toggle_time
+
+    def setToggleAnimationTime(self, value: float):
+        """Set the toggled animation blend time.
+        Args:
+            value (float): The time in milliseconds.
+        """
+        self._toggle_time = value
+
+    def toggleAnimationEasingCurve(self) -> QtCore.QEasingCurve.Type:
+        """Get the toggled animation easing curve type.
+        Returns:
+            QtCore.QEasingCurve.Type: The easing curve type.
+        """
+        return self._toggle_ani_easing_curve
+
+    def setToggleAnimationEasingCurve(self, value: QtCore.QEasingCurve.Type):
+        """Set the toggled animation easing curve type.
+        Args:
+            value (QtCore.QEasingCurve.Type): The easing curve type.
+        """
+        self._toggle_ani_easing_curve = value
+
+    def onToggleAnimationTrigger(self):
+        """Trigger the toggle animation."""
+        content_height = self.minimumSizeHint().height()
+        value = self.toggled()
+        ani_value_start = 0 if value else content_height
+        ani_value_end = content_height if value else 0
+        self._toggle_ani_prop.setStartValue(ani_value_start)
+        self._toggle_ani_prop.setEndValue(ani_value_end)
+        self._toggle_ani_prop.setDuration(self._toggle_time)
+        self._toggle_ani_prop.setEasingCurve(self._toggle_ani_easing_curve)
+        self._toggle_ani_prop.start()
+
+    def toggled(self) -> bool:
+        """Get the toggled state.
+        Returns:
+            bool: The toggle state.
+        """
+        return bool(self._toggle_state)
+
+    def setToggled(self, value: bool):
+        """Set the toggled state.
+        Args:
+            value (bool): The value.
+        """
+        value = True if value >= 0.5 else False
+        if value != self._toggle_state:
+            self._toggle_state = value
+            self.toggleValueChanged.emit(value)
+
+    # Signals
+    toggleValueChanged = QtCore.Signal(bool)
+
+
+if __name__ == "__main__":
+    pass

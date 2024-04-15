@@ -13,7 +13,7 @@ from vfxQt.views import (
     ImageItemDelegate,
     RowTableView,
 )
-from vfxQt.widgets import ToggleButton, ToggleButtonColorRole
+from vfxQt.widgets import FoldArea, ToggleButton, ToggleButtonColorRole
 
 
 class ExampleToggleButton(QtWidgets.QMainWindow):
@@ -74,6 +74,39 @@ class ExampleToggleButton(QtWidgets.QMainWindow):
         self.toggle_horizontal_button.setToggled(self.push_button.isChecked())
         self.toggle_vertical_button.setToggled(self.push_button.isChecked())
         self.toggle_disabled_button.setToggled(self.push_button.isChecked())
+
+
+
+class ExampleFoldArea(QtWidgets.QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        center_widget = QtWidgets.QWidget()
+        self.setCentralWidget(center_widget)
+
+        layout = QtWidgets.QVBoxLayout(center_widget)
+        layout.setAlignment(Qt.AlignTop)
+        center_widget.setLayout(layout)
+
+        toggle_button = ToggleButton(self)
+        toggle_button.toggleValueChanged.connect(self.onToggleValueChanged)
+        toggle_button.setBackgroundRadiusPercentage(0.5)
+        toggle_button.setFixedSize(50, 25)
+        layout.addWidget(toggle_button)
+
+        self.fold_area = FoldArea(self)
+        self.fold_area.setToggleAnimationEasingCurve(QtCore.QEasingCurve.Type.OutBounce)
+        self.fold_area.setToggleAnimationTime(500)
+
+        fold_layout = self.fold_area.layout()
+        fold_layout.addWidget(QtWidgets.QLabel("Some Text in Section"))
+        fold_layout.addWidget(QtWidgets.QPushButton("Button in Section"))
+        layout.addWidget(self.fold_area)
+
+        self.show()
+
+    def onToggleValueChanged(self, value):
+        self.fold_area.setToggled(value)
 
 
 class ExampleComboBoxItemDelegate(QtWidgets.QMainWindow):
@@ -244,7 +277,7 @@ class ExampleImageItemDelegate(QtWidgets.QMainWindow):
         import random
 
         image_resource_name = "loading_dual_ring.svg"
-        image_resource_name = "loading_gear_0.png"
+        # image_resource_name = "loading_gear_0.png"
 
         model = QtGui.QStandardItemModel()
         list_view.setModel(model)
@@ -263,23 +296,23 @@ class ExampleImageItemDelegate(QtWidgets.QMainWindow):
         self.resize(800, 400)
         self.show()
 
-    def queueUpdate(self):
-        for row in range(self.list_model.rowCount()):
-            index = self.list_model.index(row, 0)
-            value = index.data(Qt.UserRole)
-            self.list_model.setData(index, value - 0.0005, Qt.UserRole)
-            self.list_view.update(index)
+    def queueUpdate(self, index):
+        value = index.data(Qt.UserRole)
+        self.list_model.setData(index, value - 0.0005, Qt.UserRole)
+
+        self.list_view.update(index)
 
 
 if __name__ == "__main__":
     palette = get_palette()
     app = QtWidgets.QApplication(sys.argv)
-    # app.setPalette(palette)
+    app.setPalette(palette)
     example = None
     # example = ExampleToggleButton()
+    example = ExampleFoldArea()
     # example = ExampleComboBoxItemDelegate()
     # example = ExampleHtmlItemDelegate()
-    example = ExampleImageItemDelegate()
+    # example = ExampleImageItemDelegate()
     if not example:
         raise Exception("No example selected!")
     sys.exit(app.exec_())
