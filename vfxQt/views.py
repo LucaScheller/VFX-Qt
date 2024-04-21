@@ -54,33 +54,6 @@ class MultiEditItemDelegate(StyledItemDelegate):
         self._multi_row_edit = False
         self._multi_column_edit = False
 
-    def _setMultiEditData(self, index: QtCore.QModelIndex, value: Any, role: int):
-        """Set the given value at the index for the given role.
-        If multi row/column editing is enabled, apply the edit
-        for all selected row/columns.
-
-        Args:
-            index (QtCore.QModelIndex): The model index.
-            value (Any): The value.
-            role (Any): The role.
-        """
-        model = index.model()
-        rows = set([index.row()])
-        columns = set([index.column()])
-        if self.multiRowEdit():
-            view = self.parent()
-            selection_model = view.selectionModel()
-            rows.update([i.row() for i in selection_model.selectedRows()])
-        if self.multiColumnEdit():
-            view = self.parent()
-            selection_model = view.selectionModel()
-            columns.update([i.column() for i in selection_model.selectedColumns()])
-        for row in sorted(rows):
-            for column in sorted(columns):
-                multi_index = model.index(row, column)
-                if self.validateData(multi_index, value, role):
-                    self.setData(multi_index, value, role)
-
     def validateData(self, index: QtCore.QModelIndex, value: Any, role: int):
         """Validate the given value before writing it.
         Args:
@@ -138,6 +111,33 @@ class MultiEditItemDelegate(StyledItemDelegate):
                 "To support multi column editing, the parent widget must be set to a valid view."
             )
         self._multi_column_edit = state
+
+    def setMultiEditData(self, index: QtCore.QModelIndex, value: Any, role: int):
+        """Set the given value at the index for the given role.
+        If multi row/column editing is enabled, apply the edit
+        for all selected row/columns.
+
+        Args:
+            index (QtCore.QModelIndex): The model index.
+            value (Any): The value.
+            role (Any): The role.
+        """
+        model = index.model()
+        rows = set([index.row()])
+        columns = set([index.column()])
+        if self.multiRowEdit():
+            view = self.parent()
+            selection_model = view.selectionModel()
+            rows.update([i.row() for i in selection_model.selectedRows()])
+        if self.multiColumnEdit():
+            view = self.parent()
+            selection_model = view.selectionModel()
+            columns.update([i.column() for i in selection_model.selectedColumns()])
+        for row in sorted(rows):
+            for column in sorted(columns):
+                multi_index = model.index(row, column)
+                if self.validateData(multi_index, value, role):
+                    self.setData(multi_index, value, role)
 
 
 ##############################
@@ -330,7 +330,7 @@ class ComboBoxItemDelegate(MultiEditItemDelegate):
             model (QtCore.QAbstractItemModel): The item model.
             index (QtCore.QModelIndex): The model index.
         """
-        self._setMultiEditData(
+        self.setMultiEditData(
             index, editor.currentData(Qt.UserRole), self._item_value_role
         )
 
@@ -498,15 +498,287 @@ class ImageItemDelegate(MultiEditItemDelegate):
         painter.restore()
 
 
-class TagItemDelegate(StyledItemDelegate):
+class TagItemColorRole:
+    # Background
+    background = 0
+    backgroundDisabled = 1
+    backgroundHover = 2
+    backgroundSelected = 3
+    backgroundChecked = 4
+    # Border
+    border = 5
+    borderGradient = 6
+    borderDisabled = 7
+    borderHover = 8
+    borderSelected = 9
+    borderChecked = 10
+    # Label
+    label = 11
+    labelDisabled = 12
+    labelHover = 13
+    labelSelected = 14
+    labelChecked = 15
+
+
+class TagItemIconRole:
+    unchecked = 0
+    checked = 1
+
+
+class TagItemDelegate(MultiEditItemDelegate):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._font_point_size_percentage = 0.6
+
+        # Style
+        self._font_point_size_percentage = 0.8
+
+        self._border_pen = QtGui.QPen()
+        self._border_pen.setStyle(Qt.PenStyle.SolidLine)
+        self._border_width_percentage = 0.1
+
+        self._bg_brush = QtGui.QBrush(Qt.BrushStyle.SolidPattern)
+
+        self._icon_alignment = Qt.AlignLeft
+        self._icon_scale = 0.9
+
+        self._label_pen = QtGui.QPen()
+
+        # Example Style
+        # self._colors = {
+        #     TagItemColorRole.background: QtGui.QColor(229, 239, 254),
+        #     TagItemColorRole.backgroundDisabled: QtGui.QColor(229, 239, 254),
+        #     TagItemColorRole.backgroundHover: QtGui.QColor(60, 125, 240),
+        #     TagItemColorRole.backgroundSelected: QtGui.QColor(60, 125, 240),
+        #     TagItemColorRole.backgroundChecked: QtGui.QColor(60, 125, 240),
+        #     TagItemColorRole.border: QtGui.QColor(132, 173, 245),
+        #     TagItemColorRole.borderGradient: None,
+        #     TagItemColorRole.borderDisabled: QtGui.QColor(132, 173, 245),
+        #     TagItemColorRole.borderHover: QtGui.QColor(255, 255, 255),
+        #     TagItemColorRole.borderSelected: QtGui.QColor(132, 173, 245),
+        #     TagItemColorRole.borderChecked: QtGui.QColor(132, 173, 245),
+        #     TagItemColorRole.label: QtGui.QColor(64, 127, 240),
+        #     TagItemColorRole.labelDisabled: QtGui.QColor(64, 127, 240),
+        #     TagItemColorRole.labelHover: QtGui.QColor(229, 239, 254),
+        #     TagItemColorRole.labelSelected: QtGui.QColor(229, 239, 254),
+        #     TagItemColorRole.labelChecked: QtGui.QColor(229, 239, 254),
+        # }
+
+        self._colors = {
+            TagItemColorRole.background: QtGui.QColor(235, 235, 235),
+            TagItemColorRole.backgroundDisabled: QtGui.QColor(235, 235, 235),
+            TagItemColorRole.backgroundHover: QtGui.QColor(235, 235, 235),
+            TagItemColorRole.backgroundSelected: QtGui.QColor(0, 225, 255),
+            TagItemColorRole.backgroundChecked: QtGui.QColor(0, 200, 255),
+            TagItemColorRole.border: QtGui.QColor(235, 235, 235, 0),
+            TagItemColorRole.borderGradient: None,
+            TagItemColorRole.borderDisabled: QtGui.QColor(235, 235, 235, 0),
+            TagItemColorRole.borderHover: QtGui.QColor(235, 0, 0, 255),
+            TagItemColorRole.borderSelected: QtGui.QColor(235, 0, 0, 255),
+            TagItemColorRole.borderChecked: QtGui.QColor(235, 0, 0, 255),
+            TagItemColorRole.label: QtGui.QColor(125, 125, 125),
+            TagItemColorRole.labelDisabled: QtGui.QColor(125, 125, 125),
+            TagItemColorRole.labelHover: QtGui.QColor(255, 255, 255),
+            TagItemColorRole.labelSelected: QtGui.QColor(255, 255, 255),
+            TagItemColorRole.labelChecked: QtGui.QColor(255, 255, 255),
+        }
+
+        style = QtWidgets.QApplication.style()
+        self._icons = {
+            TagItemIconRole.unchecked: style.standardIcon(
+                QtWidgets.QStyle.SP_DialogApplyButton
+            ),
+            TagItemIconRole.checked: style.standardIcon(
+                QtWidgets.QStyle.SP_DialogCancelButton
+            ),
+        }
+
+        border_gradient = QtGui.QLinearGradient(0, 0, 1, 0)
+        border_gradient.setColorAt(0, QtGui.QColor.fromHsvF(0, 1, 1, 1.0))
+        border_gradient.setColorAt(0.5, QtGui.QColor.fromHsvF(0.5, 1, 1, 1.0))
+        border_gradient.setColorAt(1, QtGui.QColor.fromHsvF(0, 1, 1, 1.0))
+        border_gradient = None
+
+    def backgroundBrush(self) -> QtGui.QBrush:
+        """Get the background brush.
+        Returns:
+            QtGui.QBrush: The pen.
+        """
+        return self._bg_brush
+
+    def setBackgroundBrush(self, brush: QtGui.QBrush):
+        """Set the background brush.
+        Args:
+            pen (QtGui.QBrush): The pen.
+        """
+        self._bg_brush = brush
+
+    def borderPen(self) -> QtGui.QPen:
+        """Get the border pen.
+        Returns:
+            QtGui.QPen: The pen.
+        """
+        return self._border_pen
+
+    def setBorderPen(self, pen: QtGui.QPen):
+        """Set the border pen.
+        Args:
+            pen (QtGui.QPen): The pen.
+        """
+        self._border_pen = pen
+
+    def borderWidthPercentage(self) -> float:
+        """Get the button border width.
+        Returns:
+            float: The width.
+        """
+        return self._border_width_percentage
+
+    def setBorderWidthPercentage(self, value: float):
+        """Set the button border width
+        Args:
+            value (float): The width.
+        """
+        self._border_width_percentage = min(max(0, value * 0.5), 0.5)
+
+    def iconAlignment(self) -> Qt.Alignment:
+        """Get the icon alignment.
+        Returns:
+            Qt.Alignment: The alignment.
+        """
+        return self._icon_alignment
+
+    def setIconAlignment(self, alignment: Qt.Alignment):
+        """Set the icon alignment.
+        Args:
+            value (Qt.Alignment): The alignment.
+        """
+        if alignment not in (Qt.AlignLeft, Qt.AlignRight):
+            raise Exception(
+                "Invalid alignment specified! Only 'Qt.AlignLeft'/'Qt.AlignRight' are allowed"
+            )
+        self._icon_alignment = alignment
+
+    def iconScale(self) -> float:
+        """Get the icon scale.
+        Returns:
+            float: The icon scale.
+        """
+        return self._icon_scale
+
+    def setIconScale(self, value: float):
+        """Set the icon scale.
+        Args:
+            value (float): The icon scale.
+        """
+        self._icon_scale = value
+
+    def labelPen(self) -> QtGui.QPen:
+        """Get the label pen.
+        Returns:
+            QtGui.QPen: The pen.
+        """
+        return self._label_pen
+
+    def setLabelPen(self, pen: QtGui.QPen):
+        """Set the label pen.
+        Args:
+            pen (QtGui.QPen): The pen.
+        """
+        self._label_pen = pen
+
+    def color(self, role: int):
+        """Get the tag colors.
+        Args:
+            role (int): The color role.
+        Returns:
+            QtGui.QColor: The color.
+        """
+        return self._colors.get(role, None)
+
+    def setColor(self, role: int, color: QtGui.QColor) -> bool:
+        """Set the tag color.
+        Args:
+            role (int): The color role.
+            color (QtGui.QColor): The color.
+        Returns:
+            bool: The success state.
+        """
+        if role in self._colors:
+            self._colors[role] = color
+            return True
+        else:
+            return False
+
+    def icon(self, role: int):
+        """Get the tag icons.
+        Args:
+            role (int): The icon role.
+        Returns:
+            QtGui.QIcon: The icon.
+        """
+        return self._colors.get(role, None)
+
+    def setIcon(self, role: int, icon: QtGui.QIcon) -> bool:
+        """Set the tag icons.
+        Args:
+            role (int): The color role.
+            color (QtGui.QIcon): The color.
+        Returns:
+            bool: The success state.
+        """
+        if role in self._icons:
+            self._icons[role] = icon
+            return True
+        else:
+            return False
+
+    def getIconRect(self, index, rect) -> QtCore.QRect:
+        """Get the icon rectangle.
+        Args:
+            index (QtCore.QModelIndex): The index.
+            rect (QtCore.QRect): The rect.
+        Returns:
+            QtGui.QRect: The rectangle.
+        """
+        # icon = index.data(Qt.DecorationRole)
+        # if not icon:
+        #    return None
+
+        bg_rect = rect
+        border_width = min(bg_rect.size().toTuple()) * self._border_width_percentage
+        inner_rect = bg_rect.adjusted(
+            border_width,
+            border_width,
+            -border_width,
+            -border_width,
+        )
+
+        text_rect_height = inner_rect.height()
+        if self._icon_alignment == Qt.AlignLeft:
+            icon_rect = QtCore.QRect(
+                inner_rect.left(), inner_rect.top(), text_rect_height, text_rect_height
+            )
+        elif self._icon_alignment == Qt.AlignRight:
+            icon_rect = QtCore.QRect(
+                inner_rect.right() - text_rect_height,
+                inner_rect.top(),
+                text_rect_height,
+                text_rect_height,
+            )
+        icon_rect = rect_scale_from_center(
+            icon_rect, self._icon_scale, self._icon_scale
+        )
+        return icon_rect
 
     def sizeHint(
         self, option: QtWidgets.QStyleOptionViewItem, index: QtCore.QModelIndex
     ) -> QtCore.QSize:
-        label = index.data(Qt.DisplayRole)
+        """Calculate the size based on the item text.
+        Args:
+            option (QtWidgets.QStyleOptionViewItem): The style option.
+            index (QtCore.QModelIndex): The model index.
+        """
+        text = index.data(Qt.DisplayRole)
 
         # Height
         size_hint = index.data(Qt.SizeHintRole)
@@ -515,7 +787,7 @@ class TagItemDelegate(StyledItemDelegate):
         font = option.font
         font.setPointSizeF(font.pointSizeF() * self._font_point_size_percentage)
         font_metrics = QtGui.QFontMetrics(font)
-        size_width = font_metrics.horizontalAdvance(label)
+        size_width = font_metrics.horizontalAdvance(text)
         # Add padding for round border
         size_width += size_height
 
@@ -528,103 +800,78 @@ class TagItemDelegate(StyledItemDelegate):
         option: QtWidgets.QStyleOptionViewItem,
         index: QtCore.QModelIndex,
     ) -> None:
-        """Boilerplate paint code.
+        """Paint the tag item
         Args:
             painter (QtGui.QPainter): The painter.
             option (QtWidgets.QStyleOptionViewItem): The style option.
             index (QtCore.QModelIndex): The model index.
         """
-        # painter.save()
-        # style_option = QtWidgets.QStyleOptionViewItem(option)
-        # self.initStyleOption(style_option, index)
-        # style = option.widget.style()
-        # style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, style_option, painter)
-        # painter.restore()
 
         # Style
-        """
-        if self.isEnabled():
-            tgl_on_hsv = self._colors[ToggleButtonColorRole.toggleOn].getHsv()
-            tgl_off_hsv = self._colors[ToggleButtonColorRole.toggleOff].getHsv()
-            tgl_color = QtGui.QColor.fromHsv(
-                blend(tgl_off_hsv[0], tgl_on_hsv[0], value),
-                blend(tgl_off_hsv[1], tgl_on_hsv[1], value),
-                blend(tgl_off_hsv[2], tgl_on_hsv[2], value),
-            )
-            bg_on_hsv = self._colors[ToggleButtonColorRole.backgroundOn].getHsv()
-            bg_off_hsv = self._colors[ToggleButtonColorRole.backgroundOff].getHsv()
-            bg_color = QtGui.QColor.fromHsv(
-                blend(bg_off_hsv[0], bg_on_hsv[0], value),
-                blend(bg_off_hsv[1], bg_on_hsv[1], value),
-                blend(bg_off_hsv[2], bg_on_hsv[2], value),
-            )
-        else:
-            tgl_color = self._colors[ToggleButtonColorRole.toggleDisabled]
-            bg_color = self._colors[ToggleButtonColorRole.backgroundDisabled]
-        tgl_gradient = self._colors[ToggleButtonColorRole.toggleGradient]
-        brd_color = self._colors[ToggleButtonColorRole.border]
-        """
+        is_checked = index.data(Qt.CheckStateRole) == Qt.Checked
+        is_hover = option.state & QtWidgets.QStyle.State_MouseOver
+        is_selected = option.state & QtWidgets.QStyle.State_Selected
 
         label_text = index.data(Qt.DisplayRole)
-        label_color = QtGui.QColor.fromRgb(85, 143, 241, 255)
-        label_color_hover = QtGui.QColor.fromRgb(255, 255, 255, 255)
         icon = index.data(Qt.DecorationRole)
-        icon_alignment = Qt.AlignRight
-        icon_scale = 0.75
 
-        style = option.widget.style()
-        icon = style.standardIcon(QtWidgets.QStyle.SP_MessageBoxInformation)
+        if is_hover:
+            bg_color = self._colors[TagItemColorRole.backgroundHover]
+            border_color = self._colors[TagItemColorRole.borderHover]
+            label_color = self._colors[TagItemColorRole.labelHover]
+        elif is_selected:
+            bg_color = self._colors[TagItemColorRole.backgroundSelected]
+            border_color = self._colors[TagItemColorRole.borderSelected]
+            label_color = self._colors[TagItemColorRole.labelSelected]
+        elif is_checked:
+            bg_color = self._colors[TagItemColorRole.backgroundChecked]
+            border_color = self._colors[TagItemColorRole.borderChecked]
+            label_color = self._colors[TagItemColorRole.labelChecked]
+        else:
+            bg_color = self._colors[TagItemColorRole.background]
+            border_color = self._colors[TagItemColorRole.border]
+            label_color = self._colors[TagItemColorRole.label]
+        border_gradient = self._colors[TagItemColorRole.borderGradient]
 
-        bg_color = QtGui.QColor.fromRgb(229, 239, 254, 255)
-        bg_gradient = QtGui.QColor.fromHsvF(0.0, 0, 0.85, 1.0)
-        bg_color_hover = QtGui.QColor.fromRgb(60, 125, 240, 255)
-        border_color = QtGui.QColor.fromHsvF(0.0, 1, 0.85, 1.0)
-        border_gradient = None
+        if is_checked:
+            bg_color = self._colors[TagItemColorRole.backgroundChecked]
+            label_color = self._colors[TagItemColorRole.labelChecked]
 
-        border_width_percentage = 0.1
-
-        if option.state & QtWidgets.QStyle.State_MouseOver:
-            bg_color = bg_color_hover
-            label_color = label_color_hover
+        if not icon:
+            if is_checked:
+                icon = self._icons[TagItemIconRole.checked]
+            else:
+                icon = self._icons[TagItemIconRole.unchecked]
 
         # Draw areas
         rect = option.rect
 
-        border_width = min(rect.size().toTuple()) * border_width_percentage
-        border_width_half = border_width * 0.5
+        bg_rect = rect
+        bg_radius = bg_rect.height() * 0.5
 
-        bg_rect = rect.adjusted(
+        border_width = min(bg_rect.size().toTuple()) * self._border_width_percentage
+        border_width_half = border_width * 0.5
+        border_rect = bg_rect.adjusted(
             border_width_half, border_width_half, -border_width_half, -border_width_half
         )
-        bg_rect_height = bg_rect.height()
-        bg_rect_height_half = bg_rect_height * 0.5
-        bg_radius = bg_rect_height_half
+        border_radius = border_rect.height() * 0.5
 
         text_rect = bg_rect.adjusted(
-            bg_rect_height_half,
-            border_width_half,
-            -bg_rect_height_half,
-            -border_width_half,
+            border_width,
+            border_width,
+            -border_width,
+            -border_width,
         )
         text_font_scale = 1.0
 
+        icon_rect = self.getIconRect(index, rect)
         if icon:
             text_font_scale = text_rect.width()
-            if icon_alignment == Qt.AlignLeft:
-                text_rect.setLeft(text_rect.left() + bg_rect_height_half)
-                icon_rect = QtCore.QRect(
-                    bg_rect.left(), bg_rect.top(), bg_rect_height, bg_rect_height
-                )
-            elif icon_alignment == Qt.AlignRight:
-                text_rect.setRight(text_rect.right() - bg_rect_height_half)
-                icon_rect = QtCore.QRect(
-                    bg_rect.right() - bg_rect_height,
-                    bg_rect.top(),
-                    bg_rect_height,
-                    bg_rect_height,
-                )
+            if self._icon_alignment == Qt.AlignLeft:
+                text_rect.setLeft(icon_rect.right())
+            elif self._icon_alignment == Qt.AlignRight:
+                text_rect.setRight(icon_rect.left())
             text_font_scale = text_rect.width() / text_font_scale
-            icon_rect = rect_scale_from_center(icon_rect, icon_scale, icon_scale)
 
         # Paint start
         painter.save()
@@ -632,22 +879,34 @@ class TagItemDelegate(StyledItemDelegate):
 
         # Background
         painter.save()
-        painter.setPen(Qt.NoPen)
-        brush = QtGui.QBrush(bg_color)
-        painter.setBrush(brush)
+        self._bg_brush.setColor(bg_color)
         bg_path = QtGui.QPainterPath()
         bg_path.addRoundedRect(bg_rect, bg_radius, bg_radius)
-        painter.fillPath(bg_path, brush)
+        painter.setBrush(self._bg_brush)
+        painter.fillPath(bg_path, self._bg_brush)
         painter.restore()
 
         # Background border
         if border_width > 0:
             painter.save()
-            pen = QtGui.QPen(border_color)
-            pen.setWidth(border_width)
-            painter.setPen(pen)
-            painter.drawPath(bg_path)
+            border_path = QtGui.QPainterPath()
+            border_path.addRoundedRect(border_rect, border_radius, border_radius)
+            self._border_pen.setColor(border_color)
+            self._border_pen.setWidth(border_width)
+            painter.setPen(self._border_pen)
+            painter.drawPath(border_path)
             painter.restore()
+            if border_gradient:
+                painter.save()
+                if isinstance(border_gradient, QtGui.QLinearGradient):
+                    border_rect_left = QtCore.QPoint(rect.left(), rect.center().y())
+                    border_rect_right = QtCore.QPoint(rect.right(), rect.center().y())
+                    border_gradient.setStart(border_rect_left)
+                    border_gradient.setFinalStop(border_rect_right)
+                    self._border_pen.setBrush(border_gradient)
+                    painter.setPen(self._border_pen)
+                    painter.drawPath(bg_path)
+                painter.restore()
 
         # Icon
         if icon:
@@ -661,39 +920,11 @@ class TagItemDelegate(StyledItemDelegate):
         font.setPointSizeF(
             font.pointSizeF() * text_font_scale * self._font_point_size_percentage
         )
-        pen = QtGui.QPen(label_color)
-        painter.setPen(pen)
+        self._label_pen.setColor(label_color)
+        painter.setPen(self._label_pen)
         painter.setFont(font)
         painter.drawText(text_rect, Qt.AlignCenter, label_text)
         painter.restore()
-
-        if False:
-            painter.save()
-            painter.setPen(Qt.NoPen)
-            if isinstance(tgl_gradient, QtGui.QLinearGradient):
-                tgl_top_center_pt = QtCore.QPoint(tgl_rect.left(), tgl_rect.top())
-                tgl_bottom_center_pt = QtCore.QPoint(tgl_rect.left(), tgl_rect.bottom())
-                tgl_gradient.setStart(tgl_top_center_pt)
-                tgl_gradient.setFinalStop(tgl_bottom_center_pt)
-                brush = QtGui.QBrush(tgl_gradient)
-                painter.setBrush(brush)
-                painter.drawEllipse(
-                    tgl_center,
-                    radius * self._toggle_radius_percentage,
-                    radius * self._toggle_radius_percentage,
-                )
-            elif isinstance(tgl_gradient, QtGui.QRadialGradient):
-                tgl_gradient.setCenter(tgl_center)
-                tgl_gradient.setFocalPoint(tgl_center)
-                tgl_gradient.setRadius(radius)
-                brush = QtGui.QBrush(tgl_gradient)
-                painter.setBrush(brush)
-                painter.drawEllipse(
-                    tgl_center,
-                    radius * self._toggle_radius_percentage,
-                    radius * self._toggle_radius_percentage,
-                )
-            painter.restore()
 
         # Paint end
         painter.restore()
@@ -743,14 +974,47 @@ class TagView(QtWidgets.QListView):
         self.setSelectionBehavior(self.SelectRows)
         self.setSelectionMode(self.ExtendedSelection)
         self.setMouseTracking(True)
-
         # Edit
         self.setEditTriggers(self.AllEditTriggers)
-
         # Layout
         self.setViewMode(QtWidgets.QListView.IconMode)
         self.setSpacing(5)
         # Delegate
-        delegate = TagItemDelegate(self)
-        self.setItemDelegate(delegate)
+        self._delegate = TagItemDelegate(self)
+        self._delegate.setMultiRowEdit(True)
+        self.setItemDelegate(self._delegate)
         self.setResizeMode(QtWidgets.QListView.Adjust)
+
+    def getTagItemDelegate(self) -> TagItemDelegate:
+        """Same as self.itemDelegate(), we alias this to make it
+        clear that this is a specific delegate designed to work with
+        the TagView list view.
+        Returns:
+            TagItemDelegate: The tag item delegate.
+        """
+        return self._delegate
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        delegate: TagItemDelegate = self.itemDelegate()
+        if not isinstance(delegate, TagItemDelegate):
+            return super().mouseReleaseEvent(event)
+
+        mouse_pos = event.pos()
+        index = self.indexAt(mouse_pos)
+        if not index:
+            return super().mouseReleaseEvent(event)
+
+        rect = self.visualRect(index)
+
+        icon_rect = delegate.getIconRect(index, rect)
+        if not icon_rect:
+            return super().mouseReleaseEvent(event)
+        if icon_rect.contains(mouse_pos):
+            model = index.model()
+            check_state = model.data(index, Qt.CheckStateRole)
+            check_state = Qt.Checked if check_state == Qt.Unchecked else Qt.Unchecked
+            delegate.setMultiEditData(index, check_state, Qt.CheckStateRole)
+            print("Checked", index, check_state)
+            event.accept()
+        else:
+            return super().mouseReleaseEvent(event)

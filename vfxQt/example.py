@@ -1,6 +1,8 @@
 import os
+import random
 import sys
 
+import qtawesome as QtAwesome
 from Qt import QtCore, QtGui, QtWidgets
 from Qt.QtCore import Qt
 
@@ -12,6 +14,7 @@ from vfxQt.views import (
     HtmlItemDelegate,
     ImageItemDelegate,
     RowTableView,
+    TagItemIconRole,
 )
 from vfxQt.widgets import (
     FoldArea,
@@ -145,13 +148,41 @@ class ExampleTagList(QtWidgets.QMainWindow):
         layout.setAlignment(Qt.AlignTop)
         center_widget.setLayout(layout)
 
+        import random
+
+        import qtawesome as qta
+
+        icon_checked = qta.icon("fa5s.times-circle", color="white")
+        icon_unchecked = qta.icon("fa5s.plus-circle", color="grey")
+        icon = qta.icon("fa5s.user-circle", color="grey")
+
         tag_list_widget = TagListWidget(parent=self)
+        tag_item_model = tag_list_widget.getModel()
+        tag_item_view = tag_list_widget.getView()
+        tag_item_delegate = tag_list_widget.getItemDelegate()
+        tag_item_delegate.setIconAlignment(Qt.AlignRight)
+        tag_item_delegate.setBorderWidthPercentage(0.0)
+        tag_item_delegate.setIcon(TagItemIconRole.checked, icon_checked)
+        tag_item_delegate.setIcon(TagItemIconRole.unchecked, icon_unchecked)
+
+        font = tag_item_view.font()
+        font.setPointSizeF(font.pointSizeF() * 2.0)
+        tag_item_view.setFont(font)
+
+        item_labels = ["Apple", "Banana", "Mango", "Strawberry"]
+
+        for item_label in item_labels:
+            item = QtGui.QStandardItem(1)
+            item.setData(item_label, Qt.DisplayRole)
+            item.setData(icon, Qt.DecorationRole)
+            item.setCheckable(True)
+            item.setData(Qt.Unchecked, Qt.CheckStateRole)
+            item.setEditable(False)
+            tag_item_model.appendRow(item)
+
         layout.addWidget(tag_list_widget)
 
         self.show()
-
-    def onToggleValueChanged(self, value):
-        self.fold_area.setToggled(value)
 
 
 class ExampleComboBoxItemDelegate(QtWidgets.QMainWindow):
@@ -318,8 +349,6 @@ class ExampleImageItemDelegate(QtWidgets.QMainWindow):
         image_item_delegate.setImageCache(image_cache)
         image_item_delegate.repaintNeeded.connect(self.queueUpdate)
         list_view.setItemDelegate(image_item_delegate)
-
-        import random
 
         image_resource_name = "loading_dual_ring.svg"
         # image_resource_name = "loading_gear_0.png"

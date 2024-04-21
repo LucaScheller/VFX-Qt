@@ -2,7 +2,7 @@ from Qt import QtCore, QtGui, QtWidgets
 from Qt.QtCore import Qt
 
 from vfxQt.utils import blend
-from vfxQt.views import TagView
+from vfxQt.views import TagView, TagItemDelegate
 
 
 class ToggleButtonColorRole:
@@ -150,7 +150,7 @@ class ToggleButton(QtWidgets.QSlider):
         self._border_width_percentage = value
 
     def color(self, role: int):
-        """Get the toggle colors.
+        """Get the toggle color.
         Args:
             role (int): The color role.
         Returns:
@@ -159,7 +159,7 @@ class ToggleButton(QtWidgets.QSlider):
         return self._colors.get(role, None)
 
     def setColor(self, role: int, color: QtGui.QColor):
-        """Configure the toggle colors.
+        """Set the toggle color.
         Args:
             role (int): The color role.
             color (QtGui.QColor): The color.
@@ -662,22 +662,33 @@ class TagListWidget(QtWidgets.QWidget):
         self._model = QtGui.QStandardItemModel(parent=self)
         self._view = TagView(parent=self)
         self._view.setModel(self._model)
-
-        import random
-
-        font = self._view.font()
-        font.setPointSizeF(font.pointSizeF() * 2.0)
-        self._view.setFont(font)
-        for i in range(25):
-            label = f"Item pP{i} " + random.randrange(1, 10) * "P"
-
-            item = QtGui.QStandardItem(1)
-            item.setData(label, Qt.DisplayRole)
-            # item.setData(QtCore.QSize(0, 25), Qt.SizeHintRole)
-            item.setEditable(False)
-            self._model.appendRow(item)
+        self._delegate = self._view.itemDelegate()
 
         self.layout().addWidget(self._view)
+
+    def getModel(self) -> TagItemDelegate:
+        """Same as self._model, we alias this to make it
+        easier to publicly access the model to customize it.
+        Returns:
+            TagItemDelegate: The tag item delegate.
+        """
+        return self._model
+
+    def getView(self) -> TagItemDelegate:
+        """Same as self._model, we alias this to make it
+        easier to publicly access the model to customize it.
+        Returns:
+            TagItemDelegate: The tag item delegate.
+        """
+        return self._view
+
+    def getItemDelegate(self) -> TagItemDelegate:
+        """Same as self._view.itemDelegate(), we alias this to make it
+        easier to publicly access the delegate to customize it.
+        Returns:
+            TagItemDelegate: The tag item delegate.
+        """
+        return self._delegate
 
 
 if __name__ == "__main__":
