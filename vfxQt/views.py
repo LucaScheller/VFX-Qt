@@ -1,14 +1,14 @@
 import sys
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any
 
-from Qt import QtCore, QtGui, QtWidgets, QtSvg
+from Qt import QtCore, QtGui, QtSvg, QtWidgets
 from Qt.QtCore import Qt
 
-from vfxQt.style import get_palette
+from vfxQt.utils import rect_scale_from_center
 
 ##############################
-# Interfaces
+# Interface/Abstract
 ##############################
 
 
@@ -28,12 +28,23 @@ class StyledItemDelegate(QtWidgets.QStyledItemDelegate):
 
         """ Base code to add custom paint code to.
         painter.save()
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
         style_option = QtWidgets.QStyleOptionViewItem(option)
         self.initStyleOption(style_option, index)
         style = option.widget.style()
         style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, style_option, painter)
         painter.restore()
         """
+
+        """ Base code to debug drawing rect.
+        painter.save()
+        pen = QtGui.QPen(Qt.blue)
+        pen.setStyle(Qt.DotLine)
+        painter.setPen(pen)
+        painter.drawRect(icon_rect)
+        painter.restore()
+        """
+
         super().paint(painter, option, index)
 
 
@@ -487,6 +498,207 @@ class ImageItemDelegate(MultiEditItemDelegate):
         painter.restore()
 
 
+class TagItemDelegate(StyledItemDelegate):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._font_point_size_percentage = 0.6
+
+    def sizeHint(
+        self, option: QtWidgets.QStyleOptionViewItem, index: QtCore.QModelIndex
+    ) -> QtCore.QSize:
+        label = index.data(Qt.DisplayRole)
+
+        # Height
+        size_hint = index.data(Qt.SizeHintRole)
+        size_height = size_hint.height() if size_hint else option.fontMetrics.height()
+        # Width based on content
+        font = option.font
+        font.setPointSizeF(font.pointSizeF() * self._font_point_size_percentage)
+        font_metrics = QtGui.QFontMetrics(font)
+        size_width = font_metrics.horizontalAdvance(label)
+        # Add padding for round border
+        size_width += size_height
+
+        size = QtCore.QSize(size_width, size_height)
+        return size
+
+    def paint(
+        self,
+        painter: QtGui.QPainter,
+        option: QtWidgets.QStyleOptionViewItem,
+        index: QtCore.QModelIndex,
+    ) -> None:
+        """Boilerplate paint code.
+        Args:
+            painter (QtGui.QPainter): The painter.
+            option (QtWidgets.QStyleOptionViewItem): The style option.
+            index (QtCore.QModelIndex): The model index.
+        """
+        # painter.save()
+        # style_option = QtWidgets.QStyleOptionViewItem(option)
+        # self.initStyleOption(style_option, index)
+        # style = option.widget.style()
+        # style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, style_option, painter)
+        # painter.restore()
+
+        # Style
+        """
+        if self.isEnabled():
+            tgl_on_hsv = self._colors[ToggleButtonColorRole.toggleOn].getHsv()
+            tgl_off_hsv = self._colors[ToggleButtonColorRole.toggleOff].getHsv()
+            tgl_color = QtGui.QColor.fromHsv(
+                blend(tgl_off_hsv[0], tgl_on_hsv[0], value),
+                blend(tgl_off_hsv[1], tgl_on_hsv[1], value),
+                blend(tgl_off_hsv[2], tgl_on_hsv[2], value),
+            )
+            bg_on_hsv = self._colors[ToggleButtonColorRole.backgroundOn].getHsv()
+            bg_off_hsv = self._colors[ToggleButtonColorRole.backgroundOff].getHsv()
+            bg_color = QtGui.QColor.fromHsv(
+                blend(bg_off_hsv[0], bg_on_hsv[0], value),
+                blend(bg_off_hsv[1], bg_on_hsv[1], value),
+                blend(bg_off_hsv[2], bg_on_hsv[2], value),
+            )
+        else:
+            tgl_color = self._colors[ToggleButtonColorRole.toggleDisabled]
+            bg_color = self._colors[ToggleButtonColorRole.backgroundDisabled]
+        tgl_gradient = self._colors[ToggleButtonColorRole.toggleGradient]
+        brd_color = self._colors[ToggleButtonColorRole.border]
+        """
+
+        label_text = index.data(Qt.DisplayRole)
+        label_color = QtGui.QColor.fromRgb(85, 143, 241, 255)
+        label_color_hover = QtGui.QColor.fromRgb(255, 255, 255, 255)
+        icon = index.data(Qt.DecorationRole)
+        icon_alignment = Qt.AlignRight
+        icon_scale = 0.75
+
+        style = option.widget.style()
+        icon = style.standardIcon(QtWidgets.QStyle.SP_MessageBoxInformation)
+
+        bg_color = QtGui.QColor.fromRgb(229, 239, 254, 255)
+        bg_gradient = QtGui.QColor.fromHsvF(0.0, 0, 0.85, 1.0)
+        bg_color_hover = QtGui.QColor.fromRgb(60, 125, 240, 255)
+        border_color = QtGui.QColor.fromHsvF(0.0, 1, 0.85, 1.0)
+        border_gradient = None
+
+        border_width_percentage = 0.1
+
+        if option.state & QtWidgets.QStyle.State_MouseOver:
+            bg_color = bg_color_hover
+            label_color = label_color_hover
+
+        # Draw areas
+        rect = option.rect
+
+        border_width = min(rect.size().toTuple()) * border_width_percentage
+        border_width_half = border_width * 0.5
+
+        bg_rect = rect.adjusted(
+            border_width_half, border_width_half, -border_width_half, -border_width_half
+        )
+        bg_rect_height = bg_rect.height()
+        bg_rect_height_half = bg_rect_height * 0.5
+        bg_radius = bg_rect_height_half
+
+        text_rect = bg_rect.adjusted(
+            bg_rect_height_half,
+            border_width_half,
+            -bg_rect_height_half,
+            -border_width_half,
+        )
+        text_font_scale = 1.0
+
+        if icon:
+            text_font_scale = text_rect.width()
+            if icon_alignment == Qt.AlignLeft:
+                text_rect.setLeft(text_rect.left() + bg_rect_height_half)
+                icon_rect = QtCore.QRect(
+                    bg_rect.left(), bg_rect.top(), bg_rect_height, bg_rect_height
+                )
+            elif icon_alignment == Qt.AlignRight:
+                text_rect.setRight(text_rect.right() - bg_rect_height_half)
+                icon_rect = QtCore.QRect(
+                    bg_rect.right() - bg_rect_height,
+                    bg_rect.top(),
+                    bg_rect_height,
+                    bg_rect_height,
+                )
+            text_font_scale = text_rect.width() / text_font_scale
+            icon_rect = rect_scale_from_center(icon_rect, icon_scale, icon_scale)
+
+        # Paint start
+        painter.save()
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+        # Background
+        painter.save()
+        painter.setPen(Qt.NoPen)
+        brush = QtGui.QBrush(bg_color)
+        painter.setBrush(brush)
+        bg_path = QtGui.QPainterPath()
+        bg_path.addRoundedRect(bg_rect, bg_radius, bg_radius)
+        painter.fillPath(bg_path, brush)
+        painter.restore()
+
+        # Background border
+        if border_width > 0:
+            painter.save()
+            pen = QtGui.QPen(border_color)
+            pen.setWidth(border_width)
+            painter.setPen(pen)
+            painter.drawPath(bg_path)
+            painter.restore()
+
+        # Icon
+        if icon:
+            painter.save()
+            icon.paint(painter, icon_rect)
+            painter.restore()
+
+        # Label
+        painter.save()
+        font = painter.font()
+        font.setPointSizeF(
+            font.pointSizeF() * text_font_scale * self._font_point_size_percentage
+        )
+        pen = QtGui.QPen(label_color)
+        painter.setPen(pen)
+        painter.setFont(font)
+        painter.drawText(text_rect, Qt.AlignCenter, label_text)
+        painter.restore()
+
+        if False:
+            painter.save()
+            painter.setPen(Qt.NoPen)
+            if isinstance(tgl_gradient, QtGui.QLinearGradient):
+                tgl_top_center_pt = QtCore.QPoint(tgl_rect.left(), tgl_rect.top())
+                tgl_bottom_center_pt = QtCore.QPoint(tgl_rect.left(), tgl_rect.bottom())
+                tgl_gradient.setStart(tgl_top_center_pt)
+                tgl_gradient.setFinalStop(tgl_bottom_center_pt)
+                brush = QtGui.QBrush(tgl_gradient)
+                painter.setBrush(brush)
+                painter.drawEllipse(
+                    tgl_center,
+                    radius * self._toggle_radius_percentage,
+                    radius * self._toggle_radius_percentage,
+                )
+            elif isinstance(tgl_gradient, QtGui.QRadialGradient):
+                tgl_gradient.setCenter(tgl_center)
+                tgl_gradient.setFocalPoint(tgl_center)
+                tgl_gradient.setRadius(radius)
+                brush = QtGui.QBrush(tgl_gradient)
+                painter.setBrush(brush)
+                painter.drawEllipse(
+                    tgl_center,
+                    radius * self._toggle_radius_percentage,
+                    radius * self._toggle_radius_percentage,
+                )
+            painter.restore()
+
+        # Paint end
+        painter.restore()
+
+
 ##############################
 # Views
 ##############################
@@ -502,3 +714,43 @@ class RowTableView(QtWidgets.QTableView):
 
         # Edit
         self.setEditTriggers(self.AllEditTriggers)
+
+
+class ListView(QtWidgets.QListView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def updateGeometry(self) -> None:
+        self._
+
+        return super().updateGeometry()
+        """
+        if(ui->listWidget->count()>0){
+            float i = ui->listWidget->viewport()->width() /(330+ui->listWidget->spacing());
+            float iw  = i*330;
+            float r = ui->listWidget->viewport()->width()-iw;
+            float even_dist_w = (r/i)-5;
+            ui->listWidget->setGridSize(QSize(330+even_dist_w,162));
+        }
+        """
+
+
+class TagView(QtWidgets.QListView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # Selection
+        self.setSelectionBehavior(self.SelectRows)
+        self.setSelectionMode(self.ExtendedSelection)
+        self.setMouseTracking(True)
+
+        # Edit
+        self.setEditTriggers(self.AllEditTriggers)
+
+        # Layout
+        self.setViewMode(QtWidgets.QListView.IconMode)
+        self.setSpacing(5)
+        # Delegate
+        delegate = TagItemDelegate(self)
+        self.setItemDelegate(delegate)
+        self.setResizeMode(QtWidgets.QListView.Adjust)

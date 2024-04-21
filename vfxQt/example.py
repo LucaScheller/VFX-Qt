@@ -13,7 +13,13 @@ from vfxQt.views import (
     ImageItemDelegate,
     RowTableView,
 )
-from vfxQt.widgets import FoldArea, FoldSection, ToggleButton, ToggleButtonColorRole
+from vfxQt.widgets import (
+    FoldArea,
+    FoldSection,
+    TagListWidget,
+    ToggleButton,
+    ToggleButtonColorRole,
+)
 
 
 class ExampleToggleButton(QtWidgets.QMainWindow):
@@ -47,7 +53,7 @@ class ExampleToggleButton(QtWidgets.QMainWindow):
         self.toggle_vertical_button.setColor(
             ToggleButtonColorRole.toggleGradient, toggle_gradient
         )
-        self.toggle_vertical_button.setBorderWidth(2)
+        self.toggle_vertical_button.setBorderWidthPercentage(0.1)
         self.toggle_vertical_button.setBackgroundRadiusPercentage(0.5)
         self.toggle_vertical_button.setColor(
             ToggleButtonColorRole.border, QtGui.QColor.fromHsvF(0, 0, 0.6)
@@ -76,13 +82,13 @@ class ExampleToggleButton(QtWidgets.QMainWindow):
         self.toggle_disabled_button.setToggled(self.push_button.isChecked())
 
 
-
 class ExampleFoldAreaAndSection(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
 
         center_widget = QtWidgets.QWidget()
         self.setCentralWidget(center_widget)
+        self.setStyleSheet("QScrollArea {background: hsv(0,0,60);}")
 
         layout = QtWidgets.QVBoxLayout(center_widget)
         layout.setAlignment(Qt.AlignTop)
@@ -120,6 +126,27 @@ class ExampleFoldAreaAndSection(QtWidgets.QMainWindow):
         )
         # fold_section.clearCustomToggleButton()
         layout.addWidget(fold_section)
+
+        self.show()
+
+    def onToggleValueChanged(self, value):
+        self.fold_area.setToggled(value)
+
+
+class ExampleTagList(QtWidgets.QMainWindow):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        center_widget = QtWidgets.QWidget()
+        self.setCentralWidget(center_widget)
+        self.setStyleSheet("QScrollArea {background: hsv(0,0,60);}")
+
+        layout = QtWidgets.QVBoxLayout(center_widget)
+        layout.setAlignment(Qt.AlignTop)
+        center_widget.setLayout(layout)
+
+        tag_list_widget = TagListWidget(parent=self)
+        layout.addWidget(tag_list_widget)
 
         self.show()
 
@@ -327,7 +354,8 @@ if __name__ == "__main__":
     app.setPalette(palette)
     example = None
     # example = ExampleToggleButton()
-    example = ExampleFoldAreaAndSection()
+    # example = ExampleFoldAreaAndSection()
+    example = ExampleTagList()
     # example = ExampleComboBoxItemDelegate()
     # example = ExampleHtmlItemDelegate()
     # example = ExampleImageItemDelegate()

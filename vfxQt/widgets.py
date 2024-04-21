@@ -2,6 +2,7 @@ from Qt import QtCore, QtGui, QtWidgets
 from Qt.QtCore import Qt
 
 from vfxQt.utils import blend
+from vfxQt.views import TagView
 
 
 class ToggleButtonColorRole:
@@ -77,7 +78,7 @@ class ToggleButton(QtWidgets.QSlider):
         self._toggle_radius_percentage = 0.9
         self._toggle_time = 0.25 * 1000.0
         self._background_radius_percentage = 1.0
-        self._border_width = 0
+        self._border_width_percentage = 0
 
         """ Palette
         palette = QtWidgets.QApplication.instance().palette()
@@ -134,19 +135,19 @@ class ToggleButton(QtWidgets.QSlider):
         """
         self._background_radius_percentage = max(0, min(value, 1))
 
-    def borderWidth(self) -> int:
+    def borderWidthPercentage(self) -> float:
         """Get the button border width.
         Returns:
-            int: The width.
+            float: The width.
         """
-        return self._border_width
+        return self._border_width_percentage
 
-    def setBorderWidth(self, value: int):
+    def setBorderWidthPercentage(self, value: float):
         """Set the button border width
         Args:
-            value (int): The width.
+            value (float): The width.
         """
-        self._border_width = value
+        self._border_width_percentage = value
 
     def color(self, role: int):
         """Get the toggle colors.
@@ -306,14 +307,18 @@ class ToggleButton(QtWidgets.QSlider):
             tgl_color = self._colors[ToggleButtonColorRole.toggleDisabled]
             bg_color = self._colors[ToggleButtonColorRole.backgroundDisabled]
         tgl_gradient = self._colors[ToggleButtonColorRole.toggleGradient]
-        brd_color = self._colors[ToggleButtonColorRole.border]
+        border_color = self._colors[ToggleButtonColorRole.border]
 
         # Size
-        shrink = self._border_width * 0.5
         widget_rect = self.rect()
-        roi_rect = widget_rect.adjusted(shrink, shrink, -shrink, -shrink)
         # redraw_rect = event.rect()
         # region_rect = event.region().boundingRect()
+
+        border_width = min(widget_rect.size().toTuple()) * self._border_width_percentage
+        border_width_half = border_width * 0.5
+        roi_rect = widget_rect.adjusted(
+            border_width_half, border_width_half, -border_width_half, -border_width_half
+        )
         orientation = self.orientation()
         length = roi_rect.width()
         radius = roi_rect.height() * 0.5
@@ -348,10 +353,10 @@ class ToggleButton(QtWidgets.QSlider):
         painter.restore()
 
         # Background border
-        if self._border_width > 0:
+        if border_width > 0:
             painter.save()
-            pen = QtGui.QPen(brd_color)
-            pen.setWidth(self._border_width)
+            pen = QtGui.QPen(border_color)
+            pen.setWidth(border_width)
             painter.setPen(pen)
             painter.drawPath(bg_path)
             painter.restore()
@@ -410,10 +415,9 @@ class FoldArea(QtWidgets.QScrollArea):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        # Layout (This can be user overriden)
+        # Layout (This is user overridable)
         layout = QtWidgets.QVBoxLayout(self)
         layout.setAlignment(Qt.AlignTop)
-        layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
         # Style
@@ -423,7 +427,6 @@ class FoldArea(QtWidgets.QScrollArea):
         self.setMaximumHeight(0)
         self.setMinimumHeight(0)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
-        self.setStyleSheet("QScrollArea {background: hsv(0,0,60);}")
 
         # State
         self._toggle_state = False
@@ -647,6 +650,34 @@ class FoldSection(QtWidgets.QWidget):
 
     # Signals
     toggleValueChanged = QtCore.Signal(bool)
+
+
+class TagListWidget(QtWidgets.QWidget):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        # Layout
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        self._model = QtGui.QStandardItemModel(parent=self)
+        self._view = TagView(parent=self)
+        self._view.setModel(self._model)
+
+        import random
+
+        font = self._view.font()
+        font.setPointSizeF(font.pointSizeF() * 2.0)
+        self._view.setFont(font)
+        for i in range(25):
+            label = f"Item pP{i} " + random.randrange(1, 10) * "P"
+
+            item = QtGui.QStandardItem(1)
+            item.setData(label, Qt.DisplayRole)
+            # item.setData(QtCore.QSize(0, 25), Qt.SizeHintRole)
+            item.setEditable(False)
+            self._model.appendRow(item)
+
+        self.layout().addWidget(self._view)
 
 
 if __name__ == "__main__":

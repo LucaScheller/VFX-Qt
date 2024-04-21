@@ -1,4 +1,4 @@
 # NodeGraphQt -> Loaded from /external
 PySide2
 Qt.py
-mypy
+qtawesome
